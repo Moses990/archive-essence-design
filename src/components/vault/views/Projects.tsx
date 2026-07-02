@@ -1,55 +1,59 @@
 import { useState } from "react";
 import { Card, PageHeader, Button, Badge, StatusDot, Input } from "../ui";
 import {
-  Plus, Search, Filter, ArrowUpDown, LayoutGrid, List as ListIcon, Star, MoreHorizontal, Upload
+  Plus, Search, Filter, ArrowUpDown, LayoutGrid, List as ListIcon, Star, MoreHorizontal, Upload, X, Check, ChevronDown
 } from "lucide-react";
 import type { ViewKey } from "../types";
+import {
+  projects, clients, tagOptions, applyFilter, filterSummary,
+  type ProjectsFilter, type ProjectStatus, type ProjectTag,
+} from "../data/projects";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
-interface Props { onNavigate: (v: ViewKey) => void }
+interface Props {
+  onNavigate: (v: ViewKey) => void;
+  filter: ProjectsFilter;
+  setFilter: (f: ProjectsFilter) => void;
+}
 
-type Project = {
-  code: string;
-  name: string;
-  client: string;
-  tag: "住宅" | "商业空间" | "文化建筑" | "办公";
-  stage: "方案" | "扩初" | "施工图" | "已交付";
-  status: "active" | "review" | "archived";
-  drawings: number;
-  materials: number;
-  size: string;
-  updated: string;
-  owner: string;
-  fav: boolean;
+const statusMeta: Record<ProjectStatus | "all", { label: string; dot?: "success" | "warning" | "neutral" }> = {
+  all: { label: "全部状态" },
+  active: { label: "进行中", dot: "success" },
+  review: { label: "待审阅", dot: "warning" },
+  archived: { label: "已归档", dot: "neutral" },
 };
 
-const data: Project[] = [
-  { code: "P-2041", name: "外滩 22 号会所", client: "外滩集团", tag: "商业空间", stage: "施工图", status: "active", drawings: 128, materials: 46, size: "2.4 GB", updated: "12 分钟前", owner: "李泽", fav: true },
-  { code: "P-2039", name: "西岸美术馆改造", client: "西岸集团", tag: "文化建筑", stage: "扩初", status: "active", drawings: 84, materials: 32, size: "1.1 GB", updated: "1 小时前", owner: "王悦", fav: true },
-  { code: "P-2033", name: "松江云庐别墅群", client: "云庐置业", tag: "住宅", stage: "扩初", status: "review", drawings: 246, materials: 88, size: "5.6 GB", updated: "今天 09:41", owner: "陈默", fav: true },
-  { code: "P-2028", name: "陆家嘴金融塔 T2", client: "陆金置业", tag: "办公", stage: "施工图", status: "active", drawings: 512, materials: 124, size: "12.3 GB", updated: "昨天", owner: "周颖", fav: false },
-  { code: "P-2019", name: "苏州河公寓样板房", client: "润庭地产", tag: "住宅", stage: "已交付", status: "archived", drawings: 96, materials: 40, size: "820 MB", updated: "3 天前", owner: "刘洋", fav: false },
-  { code: "P-2015", name: "南京西路精品酒店", client: "锦江酒店", tag: "商业空间", stage: "方案", status: "active", drawings: 38, materials: 12, size: "460 MB", updated: "上周", owner: "李泽", fav: false },
-  { code: "P-2008", name: "张江科学城办公楼 B 座", client: "张江科技", tag: "办公", stage: "已交付", status: "archived", drawings: 302, materials: 96, size: "7.8 GB", updated: "2 周前", owner: "王悦", fav: false },
-  { code: "P-1998", name: "青浦朱家角艺术村", client: "朱家角文旅", tag: "文化建筑", stage: "施工图", status: "active", drawings: 178, materials: 64, size: "3.2 GB", updated: "2 周前", owner: "陈默", fav: false },
+const quickTabs: { key: ProjectTag | "all" | "archived"; label: string }[] = [
+  { key: "all", label: "全部" },
+  { key: "住宅", label: "住宅" },
+  { key: "商业空间", label: "商业空间" },
+  { key: "文化建筑", label: "文化建筑" },
+  { key: "办公", label: "办公" },
+  { key: "archived", label: "已归档" },
 ];
 
-const tags = ["全部", "住宅", "商业空间", "文化建筑", "办公", "已归档"];
-
-export default function Projects({ onNavigate }: Props) {
+export default function Projects({ onNavigate, filter, setFilter }: Props) {
   const [mode, setMode] = useState<"list" | "grid">("list");
-  const [tag, setTag] = useState("全部");
 
-  const filtered = tag === "全部"
-    ? data
-    : tag === "已归档"
-    ? data.filter(p => p.status === "archived")
-    : data.filter(p => p.tag === tag);
+  const filtered = applyFilter(projects, filter);
+  const activeCount =
+    (filter.favOnly ? 1 : 0) +
+    (filter.client !== "all" ? 1 : 0) +
+    (filter.status !== "all" ? 1 : 0) +
+    (filter.tag !== "all" ? 1 : 0);
+  const chips = filterSummary(filter);
+
+  const currentQuickTab: string =
+    filter.status === "archived" ? "archived" : filter.tag !== "all" ? filter.tag : "all";
 
   return (
     <div className="p-6 max-w-[1240px] mx-auto">
       <PageHeader
         title="项目"
-        description={`${data.length} 个项目 · 索引大小 34.8 GB · 最近同步 09:12`}
+        description={`${projects.length} 个项目 · 索引大小 34.8 GB · 最近同步 09:12`}
         actions={
           <>
             <Button variant="outline"><Upload className="h-3.5 w-3.5" />导入</Button>
@@ -58,17 +62,73 @@ export default function Projects({ onNavigate }: Props) {
         }
       />
 
-      {/* Toolbar */}
       <Card padded={false} className="mb-3">
+        {/* Toolbar */}
         <div className="flex items-center gap-2 px-3 h-11 border-b hairline">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground-subtle pointer-events-none" />
-            <Input placeholder="搜索项目名 / 编号 / 客户…" className="pl-7 w-[260px]" />
+            <Input
+              placeholder="搜索项目名 / 编号 / 客户 / 负责人…"
+              className="pl-7 w-[280px]"
+              value={filter.query}
+              onChange={(e) => setFilter({ ...filter, query: e.target.value })}
+            />
+            {filter.query && (
+              <button
+                onClick={() => setFilter({ ...filter, query: "" })}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-4 w-4 grid place-items-center rounded-[3px] text-foreground-subtle hover:text-foreground hover:bg-surface-3"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
-          <Button variant="outline"><Filter className="h-3.5 w-3.5" />筛选<span className="ml-1 text-foreground-subtle">3</span></Button>
+
+          {/* Client */}
+          <SelectPop
+            label="客户"
+            value={filter.client}
+            valueLabel={filter.client === "all" ? undefined : filter.client}
+            options={[{ v: "all", l: "全部客户" }, ...clients.map(c => ({ v: c, l: c }))]}
+            onChange={(v) => setFilter({ ...filter, client: v as string })}
+          />
+          {/* Status */}
+          <SelectPop
+            label="状态"
+            value={filter.status}
+            valueLabel={filter.status === "all" ? undefined : statusMeta[filter.status].label}
+            options={(Object.keys(statusMeta) as (ProjectStatus | "all")[]).map(k => ({
+              v: k, l: statusMeta[k].label, dot: statusMeta[k].dot,
+            }))}
+            onChange={(v) => setFilter({ ...filter, status: v as ProjectStatus | "all" })}
+          />
+          {/* Tag */}
+          <SelectPop
+            label="标签"
+            value={filter.tag}
+            valueLabel={filter.tag === "all" ? undefined : filter.tag}
+            options={[{ v: "all", l: "全部标签" }, ...tagOptions.map(t => ({ v: t, l: t }))]}
+            onChange={(v) => setFilter({ ...filter, tag: v as ProjectTag | "all" })}
+          />
+          {/* Fav */}
+          <button
+            onClick={() => setFilter({ ...filter, favOnly: !filter.favOnly })}
+            className={cn(
+              "inline-flex items-center gap-1.5 h-7 px-2 rounded-[6px] text-[12px] border hairline transition-colors",
+              filter.favOnly
+                ? "bg-warning/12 text-[hsl(38_92%_74%)] border-warning/40"
+                : "bg-transparent text-foreground-muted hover:bg-surface-2"
+            )}
+            title="只看收藏"
+          >
+            <Star className={cn("h-3.5 w-3.5", filter.favOnly && "fill-warning text-warning")} />
+            收藏
+          </button>
+
           <Button variant="ghost"><ArrowUpDown className="h-3.5 w-3.5" />最近更新</Button>
           <div className="flex-1" />
-          <div className="text-[11.5px] text-foreground-subtle">显示 {filtered.length} 项</div>
+          <div className="text-[11.5px] text-foreground-subtle">
+            {filtered.length} / {projects.length}
+          </div>
           <div className="flex items-center rounded-[6px] border hairline overflow-hidden">
             <button
               onClick={() => setMode("list")}
@@ -86,25 +146,62 @@ export default function Projects({ onNavigate }: Props) {
             </button>
           </div>
         </div>
-        {/* segmented filters */}
+
+        {/* Quick tag row */}
         <div className="flex items-center gap-1 px-3 h-9 border-b hairline overflow-x-auto scroll-thin">
-          {tags.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTag(t)}
-              className={`h-6 px-2 rounded-[4px] text-[11.5px] transition-colors ${
-                tag === t
-                  ? "bg-surface-3 text-foreground border hairline"
-                  : "text-foreground-subtle hover:text-foreground hover:bg-surface-2 border border-transparent"
-              }`}
-            >
-              {t}
-              {tag === t && <span className="ml-1.5 font-mono text-foreground-muted">{filtered.length}</span>}
-            </button>
-          ))}
+          {quickTabs.map((t) => {
+            const active = currentQuickTab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => {
+                  if (t.key === "all") setFilter({ ...filter, tag: "all", status: filter.status === "archived" ? "all" : filter.status });
+                  else if (t.key === "archived") setFilter({ ...filter, status: "archived", tag: "all" });
+                  else setFilter({ ...filter, tag: t.key as ProjectTag, status: filter.status === "archived" ? "all" : filter.status });
+                }}
+                className={`h-6 px-2 rounded-[4px] text-[11.5px] transition-colors ${
+                  active
+                    ? "bg-surface-3 text-foreground border hairline"
+                    : "text-foreground-subtle hover:text-foreground hover:bg-surface-2 border border-transparent"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+          {(chips.length > 0 || activeCount > 0) && (
+            <>
+              <div className="mx-2 h-3 w-px bg-border" />
+              <div className="flex items-center gap-1 flex-wrap">
+                {chips.map((c) => (
+                  <span key={c} className="inline-flex items-center gap-1 h-5 px-1.5 rounded-[4px] text-[10.5px] bg-primary/12 text-[hsl(244_88%_82%)] border border-primary/25">
+                    <Filter className="h-2.5 w-2.5" />
+                    {c}
+                  </span>
+                ))}
+                <button
+                  onClick={() => setFilter({ query: "", client: "all", status: "all", tag: "all", favOnly: false })}
+                  className="ml-1 inline-flex items-center gap-1 h-5 px-1.5 rounded-[4px] text-[10.5px] text-foreground-subtle hover:text-foreground hover:bg-surface-2"
+                >
+                  <X className="h-2.5 w-2.5" />
+                  清除
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
-        {mode === "list" ? (
+        {filtered.length === 0 ? (
+          <div className="p-10 text-center text-[12px] text-foreground-subtle">
+            未找到匹配项目 · 尝试
+            <button
+              className="mx-1 underline decoration-dotted hover:text-foreground"
+              onClick={() => setFilter({ query: "", client: "all", status: "all", tag: "all", favOnly: false })}
+            >
+              清除筛选
+            </button>
+          </div>
+        ) : mode === "list" ? (
           <table className="w-full text-[12px]">
             <thead>
               <tr className="text-left text-[10.5px] uppercase tracking-wider text-foreground-subtle bg-surface-1/50">
@@ -185,6 +282,61 @@ export default function Projects({ onNavigate }: Props) {
           </div>
         )}
       </Card>
+
+      <div className="text-[10.5px] text-foreground-subtle px-1">
+        提示：按 <span className="kbd">⌘K</span> 打开命令面板，可直接跳转到当前筛选或应用预设。
+      </div>
     </div>
+  );
+}
+
+function SelectPop({
+  label, value, valueLabel, options, onChange,
+}: {
+  label: string;
+  value: string;
+  valueLabel?: string;
+  options: { v: string; l: string; dot?: "success" | "warning" | "neutral" }[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = valueLabel !== undefined;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "inline-flex items-center gap-1.5 h-7 px-2 rounded-[6px] border hairline text-[12px] transition-colors",
+            active
+              ? "bg-primary/10 text-foreground border-primary/30"
+              : "bg-transparent text-foreground-muted hover:bg-surface-2"
+          )}
+        >
+          <span className="text-foreground-subtle">{label}</span>
+          {active && <span className="text-foreground">{valueLabel}</span>}
+          <ChevronDown className="h-3 w-3 text-foreground-subtle" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[200px] p-1 bg-popover border-border-strong">
+        <div className="max-h-[260px] overflow-y-auto scroll-thin">
+          {options.map((o) => {
+            const sel = o.v === value;
+            return (
+              <button
+                key={o.v}
+                onClick={() => { onChange(o.v); setOpen(false); }}
+                className="w-full flex items-center gap-2 h-7 px-2 rounded-[4px] text-[12px] text-foreground-muted hover:bg-surface-3 hover:text-foreground"
+              >
+                {o.dot && <span className={cn("h-1.5 w-1.5 rounded-full", {
+                  success: "bg-success", warning: "bg-warning", neutral: "bg-foreground-subtle",
+                }[o.dot])} />}
+                <span className="flex-1 text-left truncate">{o.l}</span>
+                {sel && <Check className="h-3 w-3 text-primary" />}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
