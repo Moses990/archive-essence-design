@@ -1,14 +1,16 @@
 import { Command } from "cmdk";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard, FolderKanban, DraftingCompass, History, Sparkles, Settings as SettingsIcon,
-  Plus, FileText, Upload, Search, Star, Filter as FilterIcon, X, Clock, Archive
+  Plus, FileText, Upload, Search, Star, Filter as FilterIcon, X, Clock, Archive, Save, Trash2,
 } from "lucide-react";
 import type { ViewKey } from "./types";
 import {
   clients, tagOptions, filterSummary, defaultFilter,
   type ProjectsFilter,
 } from "./data/projects";
+import { drawings } from "./data/drawings";
+import { useLocalState, readRecent, type RecentItem } from "./utils/localState";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -18,7 +20,14 @@ interface CommandPaletteProps {
   setFilter: (f: ProjectsFilter) => void;
 }
 
+type FilterPreset = { name: string; filter: ProjectsFilter };
+
 export function CommandPalette({ open, onOpenChange, onNavigate, filter, setFilter }: CommandPaletteProps) {
+  const [presets, setPresets] = useLocalState<FilterPreset[]>("vault:filter-presets", []);
+  const [recent, setRecent] = useState<RecentItem[]>([]);
+  const [presetName, setPresetName] = useState("");
+  const [showSave, setShowSave] = useState(false);
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
@@ -30,6 +39,14 @@ export function CommandPalette({ open, onOpenChange, onNavigate, filter, setFilt
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, [open, onOpenChange]);
+
+  useEffect(() => {
+    if (open) {
+      setRecent(readRecent());
+      setShowSave(false);
+      setPresetName("");
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -43,7 +60,23 @@ export function CommandPalette({ open, onOpenChange, onNavigate, filter, setFilt
     go("projects");
   };
 
+  const applyPreset = (p: FilterPreset) => {
+    setFilter(p.filter);
+    go("projects");
+  };
+
+  const removePreset = (name: string) => setPresets(presets.filter(p => p.name !== name));
+
+  const saveCurrentAsPreset = () => {
+    const name = presetName.trim() || `预设 ${presets.length + 1}`;
+    if (presets.some(p => p.name === name)) return;
+    setPresets([...presets, { name, filter }]);
+    setShowSave(false);
+    setPresetName("");
+  };
+
   const chips = filterSummary(filter);
+  const hasFilter = chips.length > 0;
 
   const headingCls = "[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-[10.5px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-foreground-subtle";
   const itemCls = "flex items-center gap-2.5 h-8 px-2.5 rounded-[6px] text-[12.5px] text-foreground-muted cursor-pointer data-[selected=true]:bg-surface-3 data-[selected=true]:text-foreground";
@@ -55,14 +88,14 @@ export function CommandPalette({ open, onOpenChange, onNavigate, filter, setFilt
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-[620px] max-w-[92vw] rounded-[10px] border border-border-strong bg-popover shadow-2xl overflow-hidden animate-scale-in"
+        className="w-[640px] max-w-[92vw] rounded-[10px] border border-border-strong bg-popover shadow-2xl overflow-hidden animate-scale-in"
       >
         <Command label="命令面板" className="[&_[cmdk-input]]:outline-none">
           <div className="flex items-center gap-2 px-3.5 h-11 border-b hairline">
             <Search className="h-4 w-4 text-foreground-subtle" />
             <Command.Input
               autoFocus
-              placeholder="输入命令、项目名或图纸编号…"
+              placeholder="输入命令、项目名、图纸编号…"
               className="flex-1 bg-transparent text-[13px] text-foreground placeholder:text-foreground-subtle"
             />
             <span className="kbd">ESC</span>
@@ -76,6 +109,13 @@ export function CommandPalette({ open, onOpenChange, onNavigate, filter, setFilt
                   <FilterIcon className="h-2.5 w-2.5" />{c}
                 </span>
               ))}
+              <div className="flex-1" />
+              <button
+                onClick={() => setShowSave(true)}
+                className="inline-flex items-center gap-1 h-5 px-1.5 rounded-[4px] text-[10.5px] text-primary hover:bg-primary/12"
+              >
+                <Save className="h-2.5 w-2.5" />保存为预设
+              </button>
               <button
                 onClick={() => setFilter(defaultFilter)}
                 className="inline-flex items-center gap-1 h-5 px-1.5 rounded-[4px] text-[10.5px] text-foreground-subtle hover:text-foreground hover:bg-surface-3"
@@ -85,8 +125,71 @@ export function CommandPalette({ open, onOpenChange, onNavigate, filter, setFilt
             </div>
           )}
 
-          <Command.List className="max-h-[420px] overflow-y-auto scroll-thin p-1.5">
+          {showSave && (
+            <div className="flex items-center gap-2 px-3 py-2 border-b hairline bg-primary/8">
+              <input
+                autoFocus
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                placeholder="预设名称，例如：住宅 · 待审阅"
+                className="flex-1 h-7 px-2 rounded-[4px] border hairline bg-surface-2 text-[12px] text-foreground focus-ring"
+                onKeyDown={(e) => { if (e.key === "Enter") saveCurrentAsPreset(); }}
+              />
+              <button onClick={saveCurrentAsPreset} className="h-7 px-2 rounded-[4px] bg-primary text-primary-foreground text-[11.5px] hover:bg-primary/90">保存</button>
+              <button onClick={() => setShowSave(false)} className="h-7 px-2 rounded-[4px] text-[11.5px] text-foreground-muted hover:bg-surface-3">取消</button>
+            </div>
+          )}
+
+          <Command.List className="max-h-[440px] overflow-y-auto scroll-thin p-1.5">
             <Command.Empty className="p-6 text-center text-[12px] text-foreground-subtle">未找到匹配结果</Command.Empty>
+
+            {recent.length > 0 && (
+              <Command.Group heading="最近打开" className={headingCls}>
+                {recent.slice(0, 5).map((r) => (
+                  <Command.Item key={r.key} value={`最近 ${r.label}`} onSelect={() => go(r.kind === "project" ? "project-detail" : "cad")} className={itemCls}>
+                    <Clock className="h-3.5 w-3.5 text-foreground-subtle" />
+                    <span className="flex-1 truncate">{r.label}</span>
+                    <span className="text-[10.5px] font-mono text-foreground-subtle">{r.kind === "project" ? "项目" : "图纸"}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {presets.length > 0 && (
+              <Command.Group heading="筛选预设" className={headingCls}>
+                {presets.map((p) => (
+                  <Command.Item key={p.name} value={`预设 ${p.name}`} onSelect={() => applyPreset(p)} className={itemCls}>
+                    <Save className="h-3.5 w-3.5 text-primary" />
+                    <span className="flex-1 truncate">{p.name}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removePreset(p.name); }}
+                      className="h-5 w-5 grid place-items-center rounded-[3px] text-foreground-subtle hover:bg-surface-3 hover:text-destructive"
+                      title="删除"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            <Command.Group heading="图纸检索" className={headingCls}>
+              {drawings.slice(0, 6).map((d) => (
+                <Command.Item
+                  key={d.code}
+                  value={`图纸 ${d.code} ${d.name} ${d.project}`}
+                  onSelect={() => go("cad")}
+                  className={itemCls}
+                >
+                  <DraftingCompass className="h-3.5 w-3.5 text-foreground-subtle" />
+                  <span className="flex-1 truncate">
+                    <span className="font-mono text-[11px] text-foreground-subtle mr-1.5">{d.code}</span>
+                    <span className="text-foreground">{d.name}</span>
+                  </span>
+                  <span className="text-[10.5px] text-foreground-subtle truncate max-w-[120px]">{d.project}</span>
+                </Command.Item>
+              ))}
+            </Command.Group>
 
             <Command.Group heading="项目筛选" className={headingCls}>
               <Command.Item value="收藏 收藏项目 fav" onSelect={() => applyFilter({ favOnly: true }, true)} className={itemCls}>
@@ -170,6 +273,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate, filter, setFilt
               <span>选择</span>
               <span className="kbd">↵</span>
               <span>确认</span>
+              {hasFilter && (<><span className="text-border">·</span><span className="text-primary">当前 {chips.length} 个筛选</span></>)}
             </div>
             <div>Project Vault · 命令面板</div>
           </div>

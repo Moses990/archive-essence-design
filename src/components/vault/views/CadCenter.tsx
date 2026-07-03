@@ -1,46 +1,78 @@
-import { useState } from "react";
-import { Card, PageHeader, Button, Badge, StatusDot, Input } from "../ui";
+import { useMemo, useState } from "react";
+import { Card, PageHeader, Button, Badge, StatusDot, Input, Divider } from "../ui";
+import { Sheet } from "../Sheet";
 import {
-  Search, Upload, Download, Eye, GitBranch, Clock, MoreHorizontal, Layers,
-  Filter
+  Search, Upload, Download, Eye, GitBranch, MoreHorizontal, Layers, Filter,
+  ChevronDown, ChevronRight, Copy, FolderOpen, ExternalLink,
 } from "lucide-react";
+import { drawings, versionHistory, type DrawingState, type Drawing } from "../data/drawings";
 
 const cats = [
-  { key: "all", label: "全部", count: 1284 },
-  { key: "plan", label: "平面图", count: 412 },
-  { key: "elev", label: "立面图", count: 168 },
-  { key: "sect", label: "剖面图", count: 96 },
-  { key: "detail", label: "节点大样", count: 348 },
-  { key: "struct", label: "结构", count: 142 },
-  { key: "mep", label: "机电", count: 118 },
-];
+  { key: "all", label: "全部" },
+  { key: "平面图", label: "平面图" },
+  { key: "立面图", label: "立面图" },
+  { key: "剖面图", label: "剖面图" },
+  { key: "节点大样", label: "节点大样" },
+  { key: "结构", label: "结构" },
+  { key: "机电", label: "机电" },
+] as const;
 
-const rows = [
-  { code: "A-03-14", name: "A-03 二层平面图.dwg", project: "外滩 22 号会所", cat: "平面图", v: "v14", size: "8.4 MB", author: "李泽", updated: "12 分钟前", state: "current" as const },
-  { code: "A-05-08", name: "A-05 南立面图.dwg", project: "外滩 22 号会所", cat: "立面图", v: "v8", size: "6.2 MB", author: "李泽", updated: "1 小时前", state: "current" as const },
-  { code: "S-01-02", name: "S-01 结构总平面.dwg", project: "松江云庐别墅群", cat: "结构", v: "v2", size: "12.6 MB", author: "王悦", updated: "今天 09:41", state: "review" as const },
-  { code: "D-11-22", name: "D-11 幕墙节点大样.dwg", project: "陆家嘴金融塔 T2", cat: "节点大样", v: "v22", size: "3.8 MB", author: "周颖", updated: "昨天", state: "current" as const },
-  { code: "M-04-05", name: "M-04 空调水系统.dwg", project: "西岸美术馆改造", cat: "机电", v: "v5", size: "5.1 MB", author: "陈默", updated: "昨天", state: "current" as const },
-  { code: "A-08-03", name: "A-08 剖面 3-3.dwg", project: "青浦朱家角艺术村", cat: "剖面图", v: "v3", size: "4.6 MB", author: "陈默", updated: "2 天前", state: "outdated" as const },
-  { code: "A-12-01", name: "A-12 首层地面铺装.dwg", project: "苏州河公寓样板房", cat: "平面图", v: "v1", size: "2.2 MB", author: "刘洋", updated: "3 天前", state: "archived" as const },
-  { code: "D-04-09", name: "D-04 门窗大样.dwg", project: "外滩 22 号会所", cat: "节点大样", v: "v9", size: "3.1 MB", author: "李泽", updated: "3 天前", state: "current" as const },
-  { code: "A-02-06", name: "A-02 总平面图.dwg", project: "南京西路精品酒店", cat: "平面图", v: "v6", size: "9.8 MB", author: "李泽", updated: "上周", state: "current" as const },
+const stateOptions: { key: DrawingState | "all"; label: string; variant?: "success" | "warning" | "danger" | "neutral" }[] = [
+  { key: "all", label: "全部状态" },
+  { key: "current", label: "最新", variant: "success" },
+  { key: "review", label: "待审阅", variant: "warning" },
+  { key: "outdated", label: "有冲突", variant: "danger" },
+  { key: "archived", label: "已归档", variant: "neutral" },
 ];
 
 export default function CadCenter() {
-  const [cat, setCat] = useState("all");
-  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [cat, setCat] = useState<string>("all");
+  const [q, setQ] = useState("");
+  const [stateFilter, setStateFilter] = useState<DrawingState | "all">("all");
+  const [projectFilter, setProjectFilter] = useState<string | "all">("all");
+  const [openState, setOpenState] = useState(false);
+  const [openProj, setOpenProj] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [preview, setPreview] = useState<Drawing | null>(null);
 
-  const toggle = (code: string) => {
-    const n = new Set(sel);
-    n.has(code) ? n.delete(code) : n.add(code);
-    setSel(n);
+  const projectOptions = useMemo(() => Array.from(new Set(drawings.map(d => d.project))), []);
+
+  const filtered = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    return drawings.filter(d => {
+      if (cat !== "all" && d.cat !== cat) return false;
+      if (stateFilter !== "all" && d.state !== stateFilter) return false;
+      if (projectFilter !== "all" && d.project !== projectFilter) return false;
+      if (query) {
+        const hay = `${d.code} ${d.name} ${d.project}`.toLowerCase();
+        if (!hay.includes(query)) return false;
+      }
+      return true;
+    });
+  }, [cat, q, stateFilter, projectFilter]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, Drawing[]>();
+    filtered.forEach(d => {
+      const arr = map.get(d.project) ?? [];
+      arr.push(d);
+      map.set(d.project, arr);
+    });
+    return Array.from(map.entries());
+  }, [filtered]);
+
+  const isCollapsed = (name: string) => openGroups.has(name);
+  const toggleGroup = (name: string) => {
+    const n = new Set(openGroups);
+    n.has(name) ? n.delete(name) : n.add(name);
+    setOpenGroups(n);
   };
 
-  const filtered = cat === "all" ? rows : rows.filter(r => {
-    const c = cats.find(c => c.key === cat);
-    return c && r.cat === c.label;
-  });
+  const chips: string[] = [];
+  if (cat !== "all") chips.push(cat);
+  if (stateFilter !== "all") chips.push(stateOptions.find(s => s.key === stateFilter)?.label ?? "");
+  if (projectFilter !== "all") chips.push(projectFilter);
+  if (q) chips.push(`"${q}"`);
 
   return (
     <div className="p-6 max-w-[1240px] mx-auto">
@@ -56,111 +88,263 @@ export default function CadCenter() {
       />
 
       <Card padded={false}>
-        {/* segmented categories */}
+        {/* Category tabs */}
         <div className="flex items-center gap-1 px-2 h-10 border-b hairline overflow-x-auto scroll-thin">
           {cats.map((c) => (
             <button
               key={c.key}
               onClick={() => setCat(c.key)}
-              className={`h-7 px-2.5 rounded-[6px] text-[12px] transition-colors flex items-center gap-1.5 ${
+              className={`h-7 px-2.5 rounded-[6px] text-[12px] transition-colors ${
                 cat === c.key
                   ? "bg-surface-3 text-foreground border hairline"
                   : "text-foreground-subtle hover:text-foreground hover:bg-surface-2 border border-transparent"
               }`}
             >
               {c.label}
-              <span className={`text-[10.5px] font-mono ${cat === c.key ? "text-foreground-muted" : "text-foreground-subtle"}`}>{c.count}</span>
             </button>
           ))}
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center gap-2 px-3 h-11 border-b hairline">
+        <div className="flex items-center gap-2 px-3 h-11 border-b hairline flex-wrap">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground-subtle" />
-            <Input placeholder="搜索图号 / 图名 / 项目…" className="pl-7 w-[280px]" />
+            <Input
+              placeholder="搜索图号 / 图名 / 项目…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="pl-7 w-[260px]"
+            />
           </div>
-          <Button variant="outline"><Filter className="h-3.5 w-3.5" />项目<span className="ml-1 text-foreground-subtle">全部</span></Button>
-          <Button variant="ghost"><Clock className="h-3.5 w-3.5" />最近 30 天</Button>
+
+          {/* Project filter popover */}
+          <div className="relative">
+            <Button variant="outline" onClick={() => { setOpenProj(v => !v); setOpenState(false); }}>
+              <Filter className="h-3.5 w-3.5" />项目
+              <span className="ml-1 text-foreground-subtle">{projectFilter === "all" ? "全部" : projectFilter}</span>
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+            {openProj && (
+              <div className="absolute top-8 left-0 z-30 w-[220px] rounded-[8px] border border-border-strong bg-popover shadow-xl p-1">
+                {[{ p: "all" as const, label: "全部项目" }, ...projectOptions.map(p => ({ p, label: p }))].map((o) => (
+                  <button
+                    key={o.p}
+                    onClick={() => { setProjectFilter(o.p as string); setOpenProj(false); }}
+                    className={`w-full text-left h-7 px-2 rounded-[4px] text-[12px] flex items-center justify-between ${
+                      projectFilter === o.p ? "bg-primary/12 text-foreground" : "text-foreground-muted hover:bg-surface-3"
+                    }`}
+                  >
+                    <span className="truncate">{o.label}</span>
+                    {projectFilter === o.p && <span className="badge-dot bg-primary" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Version state popover */}
+          <div className="relative">
+            <Button variant="outline" onClick={() => { setOpenState(v => !v); setOpenProj(false); }}>
+              <Filter className="h-3.5 w-3.5" />状态
+              <span className="ml-1 text-foreground-subtle">
+                {stateOptions.find(s => s.key === stateFilter)?.label}
+              </span>
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+            {openState && (
+              <div className="absolute top-8 left-0 z-30 w-[180px] rounded-[8px] border border-border-strong bg-popover shadow-xl p-1">
+                {stateOptions.map((o) => (
+                  <button
+                    key={o.key}
+                    onClick={() => { setStateFilter(o.key); setOpenState(false); }}
+                    className={`w-full text-left h-7 px-2 rounded-[4px] text-[12px] flex items-center gap-2 ${
+                      stateFilter === o.key ? "bg-primary/12 text-foreground" : "text-foreground-muted hover:bg-surface-3"
+                    }`}
+                  >
+                    {o.variant && <StatusDot variant={o.variant === "danger" ? "danger" : o.variant === "warning" ? "warning" : o.variant === "success" ? "success" : "neutral"} />}
+                    <span className="flex-1">{o.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex-1" />
-          {sel.size > 0 ? (
-            <div className="flex items-center gap-2 text-[12px]">
-              <span className="text-foreground-muted">已选 <span className="tabular font-mono text-foreground">{sel.size}</span> 项</span>
-              <Button variant="outline"><Download className="h-3.5 w-3.5" />批量导出</Button>
-              <Button variant="outline"><GitBranch className="h-3.5 w-3.5" />对比版本</Button>
-              <Button variant="ghost" onClick={() => setSel(new Set())}>取消</Button>
-            </div>
-          ) : (
-            <div className="text-[11.5px] text-foreground-subtle">共 {filtered.length} 张图纸</div>
-          )}
+          <div className="text-[11.5px] text-foreground-subtle">共 {filtered.length} 张</div>
         </div>
 
-        <table className="w-full text-[12px]">
-          <thead>
-            <tr className="text-left text-[10.5px] uppercase tracking-wider text-foreground-subtle bg-surface-1/50">
-              <th className="w-8 px-3 py-2">
-                <input type="checkbox" className="accent-primary" />
-              </th>
-              <th className="w-[92px] font-medium py-2">图号</th>
-              <th className="font-medium py-2">图名</th>
-              <th className="font-medium py-2 w-[160px]">项目</th>
-              <th className="font-medium py-2 w-[86px]">分类</th>
-              <th className="font-medium py-2 w-[60px]">版本</th>
-              <th className="font-medium py-2 w-[70px] text-right">大小</th>
-              <th className="font-medium py-2 w-[70px]">作者</th>
-              <th className="font-medium py-2 w-[110px]">更新</th>
-              <th className="w-[110px] px-3 py-2 text-right"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((r) => (
-              <tr key={r.code} className="row-hover border-t hairline group">
-                <td className="px-3 py-2">
-                  <input
-                    type="checkbox"
-                    className="accent-primary"
-                    checked={sel.has(r.code)}
-                    onChange={() => toggle(r.code)}
-                  />
-                </td>
-                <td className="py-2 font-mono text-[11px] text-foreground-subtle">{r.code}</td>
-                <td className="py-2">
-                  <div className="text-foreground font-medium truncate">{r.name}</div>
-                </td>
-                <td className="py-2 text-foreground-muted truncate">{r.project}</td>
-                <td className="py-2"><Badge variant="neutral">{r.cat}</Badge></td>
-                <td className="py-2">
-                  <Badge variant={r.state === "current" ? "primary" : r.state === "review" ? "warning" : r.state === "outdated" ? "danger" : "neutral"} className="font-mono">
-                    <StatusDot variant={r.state === "current" ? "success" : r.state === "review" ? "warning" : r.state === "outdated" ? "danger" : "neutral"} />
-                    {r.v}
-                  </Badge>
-                </td>
-                <td className="py-2 text-right tabular font-mono text-foreground-muted">{r.size}</td>
-                <td className="py-2 text-foreground-muted">{r.author}</td>
-                <td className="py-2 text-foreground-subtle">{r.updated}</td>
-                <td className="px-3 py-2 text-right">
-                  <div className="inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="h-6 w-6 grid place-items-center rounded-[4px] hover:bg-surface-3 text-foreground-muted" title="预览"><Eye className="h-3.5 w-3.5" /></button>
-                    <button className="h-6 w-6 grid place-items-center rounded-[4px] hover:bg-surface-3 text-foreground-muted" title="版本"><GitBranch className="h-3.5 w-3.5" /></button>
-                    <button className="h-6 w-6 grid place-items-center rounded-[4px] hover:bg-surface-3 text-foreground-muted" title="下载"><Download className="h-3.5 w-3.5" /></button>
-                    <button className="h-6 w-6 grid place-items-center rounded-[4px] hover:bg-surface-3 text-foreground-muted"><MoreHorizontal className="h-3.5 w-3.5" /></button>
-                  </div>
-                </td>
-              </tr>
+        {/* Filter chips */}
+        {chips.length > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-2 border-b hairline flex-wrap">
+            {chips.map((c) => (
+              <span key={c} className="inline-flex items-center gap-1 h-5 px-1.5 rounded-[4px] text-[10.5px] bg-primary/12 text-[hsl(244_88%_82%)] border border-primary/25">
+                <Filter className="h-2.5 w-2.5" />{c}
+              </span>
             ))}
-          </tbody>
-        </table>
+            <button
+              onClick={() => { setCat("all"); setStateFilter("all"); setProjectFilter("all"); setQ(""); }}
+              className="text-[10.5px] text-foreground-subtle hover:text-foreground px-1.5 h-5 rounded-[4px] hover:bg-surface-3"
+            >
+              清除全部
+            </button>
+          </div>
+        )}
+
+        {/* Grouped list */}
+        {grouped.length === 0 ? (
+          <div className="p-10 text-center text-[12px] text-foreground-subtle">
+            没有匹配的图纸，尝试调整筛选条件。
+          </div>
+        ) : (
+          <div>
+            {grouped.map(([project, items]) => {
+              const collapsed = isCollapsed(project);
+              return (
+                <div key={project} className="border-b hairline last:border-b-0">
+                  <button
+                    onClick={() => toggleGroup(project)}
+                    className="w-full flex items-center gap-2 px-3 h-9 hover:bg-surface-2 text-left"
+                  >
+                    {collapsed
+                      ? <ChevronRight className="h-3.5 w-3.5 text-foreground-subtle" />
+                      : <ChevronDown className="h-3.5 w-3.5 text-foreground-subtle" />}
+                    <span className="text-[12px] font-medium text-foreground">{project}</span>
+                    <Badge variant="neutral" className="font-mono">{items.length} 张</Badge>
+                    <span className="text-[10.5px] text-foreground-subtle font-mono">{items[0].projectCode}</span>
+                  </button>
+                  {!collapsed && (
+                    <table className="w-full text-[12px]">
+                      <tbody>
+                        {items.map((r) => (
+                          <tr key={r.code} className="row-hover border-t hairline group cursor-pointer" onClick={() => setPreview(r)}>
+                            <td className="pl-9 py-2 font-mono text-[11px] text-foreground-subtle w-[92px]">{r.code}</td>
+                            <td className="py-2">
+                              <div className="text-foreground font-medium truncate">{r.name}</div>
+                            </td>
+                            <td className="py-2 w-[86px]"><Badge variant="neutral">{r.cat}</Badge></td>
+                            <td className="py-2 w-[70px]">
+                              <Badge variant={r.state === "current" ? "primary" : r.state === "review" ? "warning" : r.state === "outdated" ? "danger" : "neutral"} className="font-mono">
+                                <StatusDot variant={r.state === "current" ? "success" : r.state === "review" ? "warning" : r.state === "outdated" ? "danger" : "neutral"} />
+                                {r.v}
+                              </Badge>
+                            </td>
+                            <td className="py-2 w-[70px] text-right tabular font-mono text-foreground-muted">{r.size}</td>
+                            <td className="py-2 w-[70px] text-foreground-muted">{r.author}</td>
+                            <td className="py-2 w-[110px] text-foreground-subtle">{r.updated}</td>
+                            <td className="px-3 py-2 text-right w-[110px]">
+                              <div className="inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                <button className="h-6 w-6 grid place-items-center rounded-[4px] hover:bg-surface-3 text-foreground-muted" title="预览" onClick={() => setPreview(r)}><Eye className="h-3.5 w-3.5" /></button>
+                                <button className="h-6 w-6 grid place-items-center rounded-[4px] hover:bg-surface-3 text-foreground-muted" title="版本"><GitBranch className="h-3.5 w-3.5" /></button>
+                                <button className="h-6 w-6 grid place-items-center rounded-[4px] hover:bg-surface-3 text-foreground-muted" title="下载"><Download className="h-3.5 w-3.5" /></button>
+                                <button className="h-6 w-6 grid place-items-center rounded-[4px] hover:bg-surface-3 text-foreground-muted"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <div className="flex items-center justify-between px-3 h-9 border-t hairline text-[11px] text-foreground-subtle">
-          <div>显示 1–{filtered.length} 共 {cats[0].count}</div>
+          <div>点击任意行可打开预览抽屉</div>
           <div className="flex items-center gap-1">
-            <button className="h-6 px-2 rounded-[4px] hover:bg-surface-2 text-foreground-muted">上一页</button>
-            <span className="kbd">1</span>
-            <span className="text-foreground-subtle">/ 42</span>
-            <button className="h-6 px-2 rounded-[4px] hover:bg-surface-2 text-foreground-muted">下一页</button>
+            <span className="kbd">?</span>
+            <span>快捷键</span>
           </div>
         </div>
       </Card>
+
+      <DrawingPreview drawing={preview} onClose={() => setPreview(null)} />
     </div>
+  );
+}
+
+function DrawingPreview({ drawing, onClose }: { drawing: Drawing | null; onClose: () => void }) {
+  const history = drawing ? versionHistory[drawing.code] ?? [
+    { v: drawing.v, who: drawing.author, when: drawing.updated, note: "当前版本" },
+  ] : [];
+  return (
+    <Sheet
+      open={!!drawing}
+      onClose={onClose}
+      title={drawing?.name}
+      subtitle={drawing && `${drawing.projectCode} · ${drawing.project}`}
+      width={480}
+      footer={
+        <div className="flex items-center gap-2">
+          <Button variant="primary"><ExternalLink className="h-3.5 w-3.5" />在 CAD 中打开</Button>
+          <Button variant="outline"><Download className="h-3.5 w-3.5" />导出</Button>
+          <Button variant="ghost"><Copy className="h-3.5 w-3.5" />复制路径</Button>
+        </div>
+      }
+    >
+      {drawing && (
+        <div className="p-4 space-y-4">
+          <div className="relative rounded-[8px] border hairline bg-surface-1 grid-bg h-[220px] overflow-hidden">
+            <div className="absolute inset-3 border border-primary/30 rounded-[4px] bg-surface-2/40" />
+            <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+              <Badge variant="primary" className="font-mono">{drawing.v}</Badge>
+              <Badge variant={drawing.state === "current" ? "success" : drawing.state === "review" ? "warning" : "neutral"}>
+                <StatusDot variant={drawing.state === "current" ? "success" : drawing.state === "review" ? "warning" : "neutral"} />
+                {drawing.state === "current" ? "最新" : drawing.state === "review" ? "待审阅" : drawing.state === "outdated" ? "有冲突" : "已归档"}
+              </Badge>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10.5px] uppercase tracking-wider text-foreground-subtle mb-1.5">元数据</div>
+            <dl className="grid grid-cols-2 gap-2 text-[11.5px]">
+              {[
+                ["图号", drawing.code],
+                ["分类", drawing.cat],
+                ["大小", drawing.size],
+                ["作者", drawing.author],
+                ["项目", drawing.project],
+                ["更新", drawing.updated],
+              ].map(([k, v]) => (
+                <div key={k} className="rounded-[6px] border hairline bg-surface-1 p-2">
+                  <dt className="text-foreground-subtle text-[10.5px]">{k}</dt>
+                  <dd className="text-foreground font-mono mt-0.5 truncate">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <Divider />
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="text-[10.5px] uppercase tracking-wider text-foreground-subtle">版本时间线</div>
+              <button className="text-[11px] text-primary hover:underline">完整历史 →</button>
+            </div>
+            <ol className="relative border-l hairline ml-1.5 pl-4 space-y-3">
+              {history.map((h, i) => (
+                <li key={h.v} className="relative">
+                  <span className={`absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-background ${i === 0 ? "bg-primary" : "bg-surface-3"}`} />
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-[11.5px] text-foreground">{h.v}</span>
+                    <span className="text-[10.5px] text-foreground-subtle">· {h.who}</span>
+                    <span className="text-[10.5px] text-foreground-subtle font-mono ml-auto">{h.when}</span>
+                  </div>
+                  <div className="text-[11.5px] text-foreground-muted mt-0.5">{h.note}</div>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <Divider />
+
+          <div className="flex items-center gap-2 text-[11px] text-foreground-subtle">
+            <FolderOpen className="h-3 w-3" />
+            <span className="font-mono truncate">/Vault/{drawing.project}/CAD/{drawing.name}</span>
+          </div>
+        </div>
+      )}
+    </Sheet>
   );
 }
