@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, PageHeader, Button, Badge, StatusDot, Divider, Input } from "../ui";
 import {
-  FolderKanban, DraftingCompass, Package, TrendingUp, Plus, Upload,
+  FolderKanban, DraftingCompass, Package, Plus, Upload,
   ArrowUpRight, Check, Circle, Sparkles, HardDrive, FolderOpen, Scan,
   BrainCircuit, ShieldCheck, ChevronRight, ChevronLeft, X, RotateCcw,
-  PartyPopper,
+  PartyPopper, Command as CommandIcon, RefreshCw, Trash2,
 } from "lucide-react";
 import type { ViewKey } from "../types";
 
-interface Props { onNavigate: (v: ViewKey) => void }
+interface Props { onNavigate: (v: ViewKey) => void; onOpenPalette?: () => void }
 
 /* ────────────────────── Demo data (revealed after onboarding) ────────────────────── */
 
@@ -16,7 +16,6 @@ const metrics = [
   { label: "项目", value: "38", delta: "+3 本周", icon: FolderKanban, color: "hsl(244 78% 66%)" },
   { label: "CAD 图纸", value: "1,284", delta: "+42 本周", icon: DraftingCompass, color: "hsl(210 90% 62%)" },
   { label: "材料文件", value: "612", delta: "+18 本周", icon: Package, color: "hsl(38 92% 58%)" },
-  { label: "本月新增资产", value: "8.4 GB", delta: "较上月 +12%", icon: TrendingUp, color: "hsl(152 55% 46%)" },
 ];
 
 const recent = [
@@ -34,6 +33,21 @@ const activity = [
   { time: "09:47", who: "周颖", action: "上传材料", target: "石材_米黄大理石.pdf", ver: "" },
   { time: "09:12", who: "系统", action: "完成索引", target: "外滩 22 号会所 (+18 项)", ver: "" },
 ];
+
+const initialTasks = [
+  { id: "t1", label: "审阅 A-03 立面图 v14", project: "外滩 22 号会所", owner: "李泽", due: "今天 18:00", priority: "high" as const },
+  { id: "t2", label: "确认外滩 22 号材料清单", project: "外滩 22 号会所", owner: "周颖", due: "明天", priority: "med" as const },
+  { id: "t3", label: "回复 T2 幕墙 RFI-024", project: "陆家嘴金融塔 T2", owner: "周颖", due: "本周五", priority: "med" as const },
+  { id: "t4", label: "归档 苏州河公寓 v0 草稿", project: "苏州河公寓样板房", owner: "刘洋", due: "本周", priority: "low" as const },
+];
+
+const storageParts = [
+  { key: "CAD",    gb: 42.8, color: "hsl(244 78% 66%)" },
+  { key: "材料",   gb: 18.4, color: "hsl(210 90% 62%)" },
+  { key: "文档",   gb: 6.2,  color: "hsl(152 55% 46%)" },
+  { key: "备份",   gb: 12.1, color: "hsl(38 92% 58%)" },
+];
+const STORAGE_TOTAL_GB = 128;
 
 /* ────────────────────── Onboarding wizard ────────────────────── */
 
@@ -59,7 +73,7 @@ const DEFAULT_CONFIG: Config = {
   indexed: null,
 };
 
-export default function Dashboard({ onNavigate }: Props) {
+export default function Dashboard({ onNavigate, onOpenPalette }: Props) {
   const [ready, setReady] = useState(false);            // ← controls empty vs populated
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
 
@@ -78,6 +92,7 @@ export default function Dashboard({ onNavigate }: Props) {
     <PopulatedDashboard
       onNavigate={onNavigate}
       config={config}
+      onOpenPalette={onOpenPalette}
       onReset={() => {
         setConfig(DEFAULT_CONFIG);
         setReady(false);
@@ -483,22 +498,13 @@ function StepHeader({ icon: Icon, title, desc }: { icon: typeof FolderOpen; titl
 /* ────────────────────── Populated dashboard (post-onboarding) ────────────────────── */
 
 function PopulatedDashboard({
-  onNavigate, config, onReset,
-}: { onNavigate: (v: ViewKey) => void; config: Config; onReset: () => void }) {
-  // Onboarding checklist derived from config
-  const checklist = useMemo(() => ([
-    { done: true,                          label: "选择本地项目根目录", detail: config.rootPath },
-    { done: config.indexed !== null,       label: "首次索引资产",       detail: config.indexed
-        ? `已索引 ${config.indexed.cad.toLocaleString()} 个 CAD、${config.indexed.materials} 份材料`
-        : "尚未索引" },
-    { done: config.aiProvider !== "none",  label: "连接 AI 提供方",     detail: config.aiProvider === "none"
-        ? "在 AI 中心配置密钥引用"
-        : `已连接 ${labelForProvider(config.aiProvider)}` },
-    { done: config.backup !== "off",       label: "配置本地备份",       detail: config.backup === "off"
-        ? "推荐每日 03:00 增量备份"
-        : config.backup === "daily" ? "每日 03:00 增量备份" : "每小时快照" },
-  ]), [config]);
-  const doneCount = checklist.filter((c) => c.done).length;
+  onNavigate, config, onReset, onOpenPalette,
+}: { onNavigate: (v: ViewKey) => void; config: Config; onReset: () => void; onOpenPalette?: () => void }) {
+  const [tasks, setTasks] = useState(initialTasks);
+  const completeTask = (id: string) => setTasks((ts) => ts.filter((t) => t.id !== id));
+
+  const used = storageParts.reduce((s, p) => s + p.gb, 0);
+  const pct = Math.round((used / STORAGE_TOTAL_GB) * 100);
 
   return (
     <div className="p-6 max-w-[1240px] mx-auto animate-fade-in">
@@ -516,8 +522,8 @@ function PopulatedDashboard({
         }
       />
 
-      {/* Metrics */}
-      <div className="grid grid-cols-4 gap-3">
+      {/* Metrics — 3 列 */}
+      <div className="grid grid-cols-3 gap-3">
         {metrics.map((m) => {
           const Icon = m.icon;
           return (
@@ -541,25 +547,106 @@ function PopulatedDashboard({
                 </div>
               </div>
               <svg className="mt-3 w-full h-8" viewBox="0 0 200 32" preserveAspectRatio="none">
-                <path
-                  d="M0,24 L20,20 L40,22 L60,14 L80,18 L100,10 L120,12 L140,6 L160,10 L180,4 L200,8"
-                  fill="none"
-                  stroke={m.color}
-                  strokeOpacity="0.75"
-                  strokeWidth="1.25"
-                />
-                <path
-                  d="M0,24 L20,20 L40,22 L60,14 L80,18 L100,10 L120,12 L140,6 L160,10 L180,4 L200,8 L200,32 L0,32 Z"
-                  fill={m.color}
-                  fillOpacity="0.08"
-                />
+                <path d="M0,24 L20,20 L40,22 L60,14 L80,18 L100,10 L120,12 L140,6 L160,10 L180,4 L200,8"
+                  fill="none" stroke={m.color} strokeOpacity="0.75" strokeWidth="1.25" />
+                <path d="M0,24 L20,20 L40,22 L60,14 L80,18 L100,10 L120,12 L140,6 L160,10 L180,4 L200,8 L200,32 L0,32 Z"
+                  fill={m.color} fillOpacity="0.08" />
               </svg>
             </Card>
           );
         })}
       </div>
 
-      {/* Main grid */}
+      {/* 待办 + 存储 */}
+      <div className="mt-3 grid grid-cols-3 gap-3">
+        <Card padded={false} className="col-span-2">
+          <div className="flex items-center justify-between px-4 h-10 border-b hairline">
+            <div className="flex items-center gap-2">
+              <h2 className="text-[12.5px] font-semibold text-foreground">待办 / 待审阅</h2>
+              <Badge variant="warning" className="font-mono">{tasks.length}</Badge>
+            </div>
+            <button className="text-[11.5px] text-primary hover:underline">全部待办 →</button>
+          </div>
+          {tasks.length === 0 ? (
+            <div className="p-8 text-center text-[12px] text-foreground-subtle">
+              <Check className="h-4 w-4 mx-auto text-success mb-1.5" />
+              全部完成，今天可以早点下班 ☕️
+            </div>
+          ) : (
+            <ul>
+              {tasks.map((t) => (
+                <li key={t.id} className="row-hover border-t hairline first:border-t-0 flex items-start gap-3 px-4 py-2.5">
+                  <button
+                    onClick={() => completeTask(t.id)}
+                    className="mt-0.5 h-4 w-4 rounded-full border border-border-strong hover:border-success hover:bg-success/15 grid place-items-center group"
+                    title="标记完成"
+                  >
+                    <Check className="h-2.5 w-2.5 text-transparent group-hover:text-success" />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] text-foreground truncate">{t.label}</div>
+                    <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-foreground-subtle">
+                      <span className="truncate">{t.project}</span>
+                      <span>·</span>
+                      <span>{t.owner}</span>
+                      <span>·</span>
+                      <span className="font-mono">{t.due}</span>
+                    </div>
+                  </div>
+                  <Badge variant={t.priority === "high" ? "danger" : t.priority === "med" ? "warning" : "neutral"}>
+                    {t.priority === "high" ? "紧急" : t.priority === "med" ? "常规" : "低"}
+                  </Badge>
+                  <button
+                    onClick={() => onNavigate("project-detail")}
+                    className="text-[11px] text-foreground-muted hover:text-foreground px-2 h-6 rounded-[4px] hover:bg-surface-3"
+                  >
+                    打开
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card padded={false}>
+          <div className="flex items-center justify-between px-4 h-10 border-b hairline">
+            <h2 className="text-[12.5px] font-semibold text-foreground">存储用量</h2>
+            <Badge variant="neutral" className="font-mono">{pct}%</Badge>
+          </div>
+          <div className="p-4">
+            <div className="flex items-baseline gap-1.5">
+              <div className="text-[22px] font-semibold tabular tracking-tight text-foreground leading-none font-mono">{used.toFixed(1)}</div>
+              <div className="text-[11.5px] text-foreground-subtle">/ {STORAGE_TOTAL_GB} GB</div>
+            </div>
+            <div className="mt-3 flex h-2 w-full rounded-full overflow-hidden bg-surface-3">
+              {storageParts.map((p) => (
+                <div key={p.key}
+                  style={{ width: `${(p.gb / STORAGE_TOTAL_GB) * 100}%`, backgroundColor: p.color }}
+                  title={`${p.key} ${p.gb} GB`}
+                />
+              ))}
+            </div>
+            <ul className="mt-3 space-y-1.5 text-[11.5px]">
+              {storageParts.map((p) => (
+                <li key={p.key} className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: p.color }} />
+                  <span className="flex-1 text-foreground-muted">{p.key}</span>
+                  <span className="font-mono tabular text-foreground">{p.gb} GB</span>
+                </li>
+              ))}
+            </ul>
+            <Divider className="my-3" />
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-foreground-subtle inline-flex items-center gap-1">
+                <Trash2 className="h-3 w-3" />清理建议 3 项
+              </span>
+              <button onClick={() => onNavigate("settings")} className="text-primary hover:underline">前往清理 →</button>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* 最近项目 + 快速操作/活动 */}
       <div className="mt-3 grid grid-cols-3 gap-3">
         <Card padded={false} className="col-span-2">
           <div className="flex items-center justify-between px-4 h-10 border-b hairline">
@@ -613,29 +700,14 @@ function PopulatedDashboard({
         <div className="col-span-1 flex flex-col gap-3">
           <Card padded={false}>
             <div className="flex items-center justify-between px-4 h-10 border-b hairline">
-              <h2 className="text-[12.5px] font-semibold text-foreground">上手指引</h2>
-              <span className="text-[10.5px] font-mono text-foreground-subtle">{doneCount} / {checklist.length}</span>
+              <h2 className="text-[12.5px] font-semibold text-foreground">快速操作</h2>
+              <span className="text-[10.5px] text-foreground-subtle">高频入口</span>
             </div>
-            <ul className="p-2">
-              {checklist.map((s, i) => (
-                <li key={i} className="flex items-start gap-2.5 px-2 py-1.5 rounded-[6px] hover:bg-surface-2 transition-colors">
-                  <div className={`mt-0.5 h-4 w-4 rounded-full grid place-items-center border ${s.done ? "bg-success/15 border-success/40" : "border-border-strong"}`}>
-                    {s.done ? <Check className="h-2.5 w-2.5 text-success" /> : <Circle className="h-2 w-2 text-foreground-subtle" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className={`text-[12px] ${s.done ? "text-foreground-muted line-through" : "text-foreground"}`}>{s.label}</div>
-                    <div className="text-[10.5px] text-foreground-subtle mt-0.5 truncate">{s.detail}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <Divider />
-            <div className="p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[11.5px] text-foreground-muted">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-                智能建议已启用
-              </div>
-              <Button size="xs" variant="ghost" onClick={() => onNavigate("ai")}>去配置 →</Button>
+            <div className="p-2 grid grid-cols-2 gap-1.5">
+              <QuickAction icon={Plus} label="新建项目" hint="N" onClick={() => onNavigate("projects")} />
+              <QuickAction icon={Upload} label="导入 CAD" hint="U" onClick={() => onNavigate("cad")} />
+              <QuickAction icon={RefreshCw} label="重新索引" hint="R I" onClick={() => { /* demo */ }} />
+              <QuickAction icon={CommandIcon} label="命令面板" hint="⌘K" onClick={() => onOpenPalette?.()} />
             </div>
           </Card>
 
@@ -663,78 +735,55 @@ function PopulatedDashboard({
         </div>
       </div>
 
-      {/* System status */}
-      <div className="mt-3 grid grid-cols-3 gap-3">
-        <Card padded={false} className="col-span-2 overflow-hidden">
-          <div className="flex items-center justify-between px-4 h-10 border-b hairline">
-            <h2 className="text-[12.5px] font-semibold text-foreground">初始化摘要</h2>
-            <Badge variant="success"><Check className="h-2.5 w-2.5" />示例数据已加载</Badge>
+      {/* 系统状态一行式 */}
+      <Card padded={false} className="mt-3">
+        <div className="flex items-center gap-5 px-4 h-11 text-[11.5px] flex-wrap">
+          <div className="inline-flex items-center gap-1.5 text-foreground-muted">
+            <StatusDot /> 系统 <span className="text-foreground">健康</span>
           </div>
-          <div className="p-4 grid grid-cols-2 gap-3 text-[12px]">
-            <SummaryRow label="根目录" value={config.rootPath} mono />
-            <SummaryRow
-              label="索引结果"
-              value={config.indexed
-                ? `${config.indexed.cad} CAD · ${config.indexed.materials} 材料 · ${config.indexed.docs} 文档`
-                : "—"}
-            />
-            <SummaryRow label="AI 提供方" value={labelForProvider(config.aiProvider)} />
-            <SummaryRow
-              label="备份策略"
-              value={config.backup === "daily" ? "每日 03:00 增量" : config.backup === "hourly" ? "每小时快照" : "未启用"}
-            />
+          <span className="text-border">·</span>
+          <div className="inline-flex items-center gap-1.5 text-foreground-muted">
+            <StatusDot /> 本地索引 <span className="text-foreground">运行中</span>
+            <span className="text-foreground-subtle font-mono">09:12</span>
           </div>
-        </Card>
-
-        <Card padded={false}>
-          <div className="flex items-center justify-between px-4 h-10 border-b hairline">
-            <h2 className="text-[12.5px] font-semibold text-foreground">系统状态</h2>
-            <Badge variant="success"><StatusDot />健康</Badge>
+          <span className="text-border">·</span>
+          <div className="inline-flex items-center gap-1.5 text-foreground-muted">
+            <StatusDot variant={config.aiProvider === "none" ? "warning" : "info"} />
+            AI 网关 <span className="text-foreground">{config.aiProvider === "none" ? "未连接" : labelForProvider(config.aiProvider)}</span>
           </div>
-          <div className="p-4 space-y-3 text-[12px]">
-            {[
-              { label: "本地索引", value: "运行中", state: "success" as const, sub: "上次: 09:12" },
-              { label: "文件监听", value: "已开启", state: "success" as const, sub: "1,896 个句柄" },
-              { label: "AI 网关",
-                value: config.aiProvider === "none" ? "未连接" : "已连接",
-                state: (config.aiProvider === "none" ? "warning" : "info") as "warning" | "info",
-                sub: config.aiProvider === "none" ? "在 AI 中心配置" : `延迟 138 ms · ${labelForProvider(config.aiProvider)}` },
-              { label: "增量备份",
-                value: config.backup === "off" ? "未配置" : "已启用",
-                state: (config.backup === "off" ? "warning" : "success") as "warning" | "success",
-                sub: config.backup === "off" ? "建议每日备份" : config.backup === "daily" ? "每日 03:00" : "每小时" },
-            ].map((s) => (
-              <div key={s.label} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <StatusDot variant={s.state} />
-                  <span className="text-foreground-muted">{s.label}</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-foreground">{s.value}</div>
-                  <div className="text-[10.5px] text-foreground-subtle font-mono">{s.sub}</div>
-                </div>
-              </div>
-            ))}
-            <Divider />
-            <div className="flex items-center gap-2 text-[11.5px] text-foreground-muted">
-              <HardDrive className="h-3.5 w-3.5 text-foreground-subtle" />
-              本地路径 <span className="font-mono text-foreground truncate">{config.rootPath}</span>
-            </div>
+          <span className="text-border">·</span>
+          <div className="inline-flex items-center gap-1.5 text-foreground-muted">
+            <StatusDot variant={config.backup === "off" ? "warning" : "success"} />
+            备份 <span className="text-foreground">{config.backup === "off" ? "未配置" : config.backup === "daily" ? "每日 03:00" : "每小时"}</span>
           </div>
-        </Card>
-      </div>
+          <div className="flex-1" />
+          <div className="inline-flex items-center gap-1.5 text-foreground-subtle">
+            <HardDrive className="h-3 w-3" />
+            <span className="font-mono text-foreground-muted truncate max-w-[240px]">{config.rootPath}</span>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
 
-function SummaryRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function QuickAction({ icon: Icon, label, hint, onClick }: { icon: typeof Plus; label: string; hint: string; onClick?: () => void }) {
   return (
-    <div className="rounded-[6px] bg-surface-1/60 border hairline p-2.5">
-      <div className="text-[10.5px] text-foreground-subtle">{label}</div>
-      <div className={`mt-1 text-[12px] text-foreground truncate ${mono ? "font-mono" : ""}`}>{value}</div>
-    </div>
+    <button
+      onClick={onClick}
+      className="group flex items-start gap-2.5 p-2.5 rounded-[6px] border hairline bg-surface-1/60 hover:bg-surface-2 hover:border-primary/40 transition-colors text-left"
+    >
+      <div className="h-6 w-6 shrink-0 rounded-[5px] bg-surface-3 border hairline grid place-items-center text-foreground-muted group-hover:text-primary">
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[11.5px] font-medium text-foreground truncate">{label}</div>
+        <div className="text-[10px] font-mono text-foreground-subtle mt-0.5">{hint}</div>
+      </div>
+    </button>
   );
 }
+
 
 function labelForProvider(p: Config["aiProvider"]) {
   switch (p) {

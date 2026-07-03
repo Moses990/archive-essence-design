@@ -23,7 +23,7 @@ const Index = () => {
       <div className="flex-1 min-w-0 flex flex-col">
         <TopBar view={view} onOpenPalette={() => setPaletteOpen(true)} onNavigate={setView} />
         <main className="flex-1 overflow-y-auto scroll-thin animate-fade-in" key={view}>
-          {view === "dashboard" && <Dashboard onNavigate={setView} />}
+          {view === "dashboard" && <Dashboard onNavigate={setView} onOpenPalette={() => setPaletteOpen(true)} />}
           {view === "projects" && <Projects onNavigate={setView} filter={projectsFilter} setFilter={setProjectsFilter} />}
           {view === "cad" && <CadCenter />}
           {view === "history" && <HistoryView />}
