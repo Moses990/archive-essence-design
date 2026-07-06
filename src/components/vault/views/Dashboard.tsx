@@ -802,10 +802,29 @@ function PopulatedDashboard({
             <div className="p-2 grid grid-cols-2 gap-1.5">
               <QuickAction icon={Plus} label="新建项目" hint="N" onClick={() => onNavigate("projects")} />
               <QuickAction icon={Upload} label="导入 CAD" hint="U" onClick={() => onNavigate("cad")} />
+              <QuickAction icon={ClipboardCheck} label="新建待办" hint="T" onClick={() => {
+                const id = `t-${Date.now()}`;
+                setTasks((ts) => [
+                  { id, label: "新待办 · 双击编辑", project: "外滩 22 号会所", owner: CURRENT_USER, due: "今天", priority: "med", kind: "review" },
+                  ...ts,
+                ]);
+              }} />
+              <QuickAction icon={FileSearch} label="全局搜索" hint="/" onClick={() => onOpenPalette?.()} />
+              <QuickAction icon={Sparkles} label="AI 助手" hint="A" onClick={() => onNavigate("ai")} />
               <QuickAction icon={RefreshCw} label="重新索引" hint="R I" onClick={() => { /* demo */ }} />
-              <QuickAction icon={CommandIcon} label="命令面板" hint="⌘K" onClick={() => onOpenPalette?.()} />
             </div>
+            <Divider />
+            <button
+              onClick={() => onOpenPalette?.()}
+              className="w-full h-9 px-3 flex items-center justify-between text-[11.5px] text-foreground-muted hover:text-foreground hover:bg-surface-2 transition-colors"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <CommandIcon className="h-3 w-3" />打开命令面板
+              </span>
+              <span className="font-mono text-[10.5px] text-foreground-subtle">⌘K</span>
+            </button>
           </Card>
+
 
           <Card padded={false} className="flex-1">
             <div className="flex items-center justify-between px-4 h-10 border-b hairline">
