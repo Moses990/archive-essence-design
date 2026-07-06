@@ -506,11 +506,40 @@ function StepHeader({ icon: Icon, title, desc }: { icon: typeof FolderOpen; titl
 function PopulatedDashboard({
   onNavigate, config, onReset, onOpenPalette,
 }: { onNavigate: (v: ViewKey) => void; config: Config; onReset: () => void; onOpenPalette?: () => void }) {
+  type FilterKey = "all" | "mine" | "urgent" | "overdue";
   const [tasks, setTasks] = useState(initialTasks);
-  const completeTask = (id: string) => setTasks((ts) => ts.filter((t) => t.id !== id));
+  const [completed, setCompleted] = useState<typeof initialTasks>([]);
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const CURRENT_USER = "李泽";
 
-  const used = storageParts.reduce((s, p) => s + p.gb, 0);
-  const pct = Math.round((used / STORAGE_TOTAL_GB) * 100);
+  const completeTask = (id: string) => {
+    setTasks((ts) => {
+      const t = ts.find((x) => x.id === id);
+      if (t) setCompleted((c) => [t, ...c].slice(0, 8));
+      return ts.filter((x) => x.id !== id);
+    });
+  };
+  const undoLast = () => {
+    setCompleted((c) => {
+      if (c.length === 0) return c;
+      const [head, ...rest] = c;
+      setTasks((ts) => [head, ...ts]);
+      return rest;
+    });
+  };
+  const snoozeTask = (id: string) => {
+    setTasks((ts) => ts.map((t) => t.id === id ? { ...t, due: "明天", overdue: false } : t));
+  };
+
+  const filteredTasks = tasks.filter((t) => {
+    if (filter === "mine") return t.owner === CURRENT_USER;
+    if (filter === "urgent") return t.priority === "high";
+    if (filter === "overdue") return !!t.overdue;
+    return true;
+  });
+  const overdueCount = tasks.filter((t) => t.overdue).length;
+  const todayCount = tasks.filter((t) => t.due.startsWith("今天") || t.due === "今天").length;
+
 
   return (
     <div className="p-6 max-w-[1240px] mx-auto animate-fade-in">
