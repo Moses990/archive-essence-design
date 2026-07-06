@@ -34,20 +34,24 @@ const activity = [
   { time: "09:12", who: "系统", action: "完成索引", target: "外滩 22 号会所 (+18 项)", ver: "" },
 ];
 
-const initialTasks = [
-  { id: "t1", label: "审阅 A-03 立面图 v14", project: "外滩 22 号会所", owner: "李泽", due: "今天 18:00", priority: "high" as const },
-  { id: "t2", label: "确认外滩 22 号材料清单", project: "外滩 22 号会所", owner: "周颖", due: "明天", priority: "med" as const },
-  { id: "t3", label: "回复 T2 幕墙 RFI-024", project: "陆家嘴金融塔 T2", owner: "周颖", due: "本周五", priority: "med" as const },
-  { id: "t4", label: "归档 苏州河公寓 v0 草稿", project: "苏州河公寓样板房", owner: "刘洋", due: "本周", priority: "low" as const },
+type TaskKind = "review" | "material" | "rfi" | "archive" | "meeting";
+const initialTasks: {
+  id: string; label: string; project: string; owner: string; due: string;
+  priority: "high" | "med" | "low"; kind: TaskKind; overdue?: boolean;
+}[] = [
+  { id: "t1", label: "审阅 A-03 立面图 v14", project: "外滩 22 号会所", owner: "李泽", due: "今天 18:00", priority: "high", kind: "review" },
+  { id: "t2", label: "确认外滩 22 号材料清单", project: "外滩 22 号会所", owner: "周颖", due: "明天", priority: "med", kind: "material" },
+  { id: "t3", label: "回复 T2 幕墙 RFI-024", project: "陆家嘴金融塔 T2", owner: "周颖", due: "本周五", priority: "med", kind: "rfi" },
+  { id: "t4", label: "归档 苏州河公寓 v0 草稿", project: "苏州河公寓样板房", owner: "刘洋", due: "本周", priority: "low", kind: "archive" },
+  { id: "t5", label: "西岸美术馆施工图周会纪要", project: "西岸美术馆改造", owner: "王悦", due: "昨天", priority: "high", kind: "meeting", overdue: true },
 ];
 
-const storageParts = [
-  { key: "CAD",    gb: 42.8, color: "hsl(244 78% 66%)" },
-  { key: "材料",   gb: 18.4, color: "hsl(210 90% 62%)" },
-  { key: "文档",   gb: 6.2,  color: "hsl(152 55% 46%)" },
-  { key: "备份",   gb: 12.1, color: "hsl(38 92% 58%)" },
+const weekMilestones = [
+  { d: "07-02", w: "周四", title: "外滩 22 号 · 90% 施工图评审", project: "P-2041", owner: "李泽",  state: "urgent" as const, days: 1 },
+  { d: "07-03", w: "周五", title: "陆家嘴 T2 幕墙 RFI-024 回复截止", project: "P-2028", owner: "周颖", state: "urgent" as const, days: 2 },
+  { d: "07-04", w: "周六", title: "西岸美术馆材料样板确认", project: "P-2039", owner: "王悦", state: "normal" as const, days: 3 },
+  { d: "07-07", w: "周二", title: "松江云庐 · 结构复核提交", project: "P-2033", owner: "刘洋", state: "normal" as const, days: 6 },
 ];
-const STORAGE_TOTAL_GB = 128;
 
 /* ────────────────────── Onboarding wizard ────────────────────── */
 
