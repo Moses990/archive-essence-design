@@ -223,10 +223,6 @@ function OverviewTab() {
               ["客户", "外滩集团有限公司"],
               ["合同编号", "SH-2025-1104"],
               ["建筑面积", "18,420 m²"],
-              ["造价预算", "¥ 2.4 亿"],
-              ["主设计师", "李泽"],
-              ["施工方", "上海建工八局"],
-              ["交付时间", "2026-09-30"],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between gap-3">
                 <dt className="text-foreground-subtle">{k}</dt>
@@ -235,6 +231,47 @@ function OverviewTab() {
             ))}
           </dl>
         </Card>
+
+        <Card padded={false}>
+          <div className="flex items-center justify-between px-4 h-10 border-b hairline">
+            <h3 className="text-[12.5px] font-semibold text-foreground">项目资料</h3>
+            <button className="text-[11px] text-primary hover:underline">上传</button>
+          </div>
+          <ul className="divide-y hairline">
+            {[
+              { key: "site", label: "现场照片", icon: MapPin, count: 42, size: "186 MB", updated: "3 天前", color: "hsl(210 90% 62%)" },
+              { key: "arch", label: "原建筑图", icon: DraftingCompass, count: 18, size: "62 MB", updated: "上周", color: "hsl(244 78% 66%)" },
+              { key: "mep",  label: "原机电图纸", icon: FileText, count: 24, size: "94 MB", updated: "2 周前", color: "hsl(38 92% 58%)" },
+            ].map((r) => {
+              const Icon = r.icon;
+              return (
+                <li key={r.key} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-2 cursor-pointer">
+                  <div
+                    className="h-7 w-7 rounded-[6px] grid place-items-center shrink-0"
+                    style={{ backgroundColor: `${r.color.replace(")", " / 0.14)")}`, color: r.color }}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] text-foreground truncate">{r.label}</div>
+                    <div className="text-[10.5px] text-foreground-subtle mt-0.5 font-mono tabular">
+                      {r.count} 项 · {r.size}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[10.5px] text-foreground-subtle">{r.updated}</div>
+                    <ChevronRight className="inline h-3 w-3 text-foreground-subtle mt-0.5" />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <Divider />
+          <button className="w-full h-9 text-[11.5px] text-foreground-muted hover:text-foreground hover:bg-surface-2 transition-colors">
+            + 添加参考资料
+          </button>
+        </Card>
+
         <Card>
           <h3 className="text-[12.5px] font-semibold text-foreground mb-3">标签</h3>
           <div className="flex flex-wrap gap-1.5">
@@ -246,6 +283,7 @@ function OverviewTab() {
           </div>
         </Card>
       </div>
+
     </div>
   );
 }
