@@ -5,6 +5,8 @@ import {
   ArrowUpRight, Check, Circle, Sparkles, HardDrive, FolderOpen, Scan,
   BrainCircuit, ShieldCheck, ChevronRight, ChevronLeft, X, RotateCcw,
   PartyPopper, Command as CommandIcon, RefreshCw, Trash2,
+  Calendar, Clock, AlertTriangle, ClipboardCheck, MessageSquare, Archive,
+  FileSearch, Bell, Users, Undo2, ChevronDown,
 } from "lucide-react";
 import type { ViewKey } from "../types";
 
@@ -34,20 +36,24 @@ const activity = [
   { time: "09:12", who: "系统", action: "完成索引", target: "外滩 22 号会所 (+18 项)", ver: "" },
 ];
 
-const initialTasks = [
-  { id: "t1", label: "审阅 A-03 立面图 v14", project: "外滩 22 号会所", owner: "李泽", due: "今天 18:00", priority: "high" as const },
-  { id: "t2", label: "确认外滩 22 号材料清单", project: "外滩 22 号会所", owner: "周颖", due: "明天", priority: "med" as const },
-  { id: "t3", label: "回复 T2 幕墙 RFI-024", project: "陆家嘴金融塔 T2", owner: "周颖", due: "本周五", priority: "med" as const },
-  { id: "t4", label: "归档 苏州河公寓 v0 草稿", project: "苏州河公寓样板房", owner: "刘洋", due: "本周", priority: "low" as const },
+type TaskKind = "review" | "material" | "rfi" | "archive" | "meeting";
+const initialTasks: {
+  id: string; label: string; project: string; owner: string; due: string;
+  priority: "high" | "med" | "low"; kind: TaskKind; overdue?: boolean;
+}[] = [
+  { id: "t1", label: "审阅 A-03 立面图 v14", project: "外滩 22 号会所", owner: "李泽", due: "今天 18:00", priority: "high", kind: "review" },
+  { id: "t2", label: "确认外滩 22 号材料清单", project: "外滩 22 号会所", owner: "周颖", due: "明天", priority: "med", kind: "material" },
+  { id: "t3", label: "回复 T2 幕墙 RFI-024", project: "陆家嘴金融塔 T2", owner: "周颖", due: "本周五", priority: "med", kind: "rfi" },
+  { id: "t4", label: "归档 苏州河公寓 v0 草稿", project: "苏州河公寓样板房", owner: "刘洋", due: "本周", priority: "low", kind: "archive" },
+  { id: "t5", label: "西岸美术馆施工图周会纪要", project: "西岸美术馆改造", owner: "王悦", due: "昨天", priority: "high", kind: "meeting", overdue: true },
 ];
 
-const storageParts = [
-  { key: "CAD",    gb: 42.8, color: "hsl(244 78% 66%)" },
-  { key: "材料",   gb: 18.4, color: "hsl(210 90% 62%)" },
-  { key: "文档",   gb: 6.2,  color: "hsl(152 55% 46%)" },
-  { key: "备份",   gb: 12.1, color: "hsl(38 92% 58%)" },
+const weekMilestones = [
+  { d: "07-02", w: "周四", title: "外滩 22 号 · 90% 施工图评审", project: "P-2041", owner: "李泽",  state: "urgent" as const, days: 1 },
+  { d: "07-03", w: "周五", title: "陆家嘴 T2 幕墙 RFI-024 回复截止", project: "P-2028", owner: "周颖", state: "urgent" as const, days: 2 },
+  { d: "07-04", w: "周六", title: "西岸美术馆材料样板确认", project: "P-2039", owner: "王悦", state: "normal" as const, days: 3 },
+  { d: "07-07", w: "周二", title: "松江云庐 · 结构复核提交", project: "P-2033", owner: "刘洋", state: "normal" as const, days: 6 },
 ];
-const STORAGE_TOTAL_GB = 128;
 
 /* ────────────────────── Onboarding wizard ────────────────────── */
 
@@ -500,11 +506,40 @@ function StepHeader({ icon: Icon, title, desc }: { icon: typeof FolderOpen; titl
 function PopulatedDashboard({
   onNavigate, config, onReset, onOpenPalette,
 }: { onNavigate: (v: ViewKey) => void; config: Config; onReset: () => void; onOpenPalette?: () => void }) {
+  type FilterKey = "all" | "mine" | "urgent" | "overdue";
   const [tasks, setTasks] = useState(initialTasks);
-  const completeTask = (id: string) => setTasks((ts) => ts.filter((t) => t.id !== id));
+  const [completed, setCompleted] = useState<typeof initialTasks>([]);
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const CURRENT_USER = "李泽";
 
-  const used = storageParts.reduce((s, p) => s + p.gb, 0);
-  const pct = Math.round((used / STORAGE_TOTAL_GB) * 100);
+  const completeTask = (id: string) => {
+    setTasks((ts) => {
+      const t = ts.find((x) => x.id === id);
+      if (t) setCompleted((c) => [t, ...c].slice(0, 8));
+      return ts.filter((x) => x.id !== id);
+    });
+  };
+  const undoLast = () => {
+    setCompleted((c) => {
+      if (c.length === 0) return c;
+      const [head, ...rest] = c;
+      setTasks((ts) => [head, ...ts]);
+      return rest;
+    });
+  };
+  const snoozeTask = (id: string) => {
+    setTasks((ts) => ts.map((t) => t.id === id ? { ...t, due: "明天", overdue: false } : t));
+  };
+
+  const filteredTasks = tasks.filter((t) => {
+    if (filter === "mine") return t.owner === CURRENT_USER;
+    if (filter === "urgent") return t.priority === "high";
+    if (filter === "overdue") return !!t.overdue;
+    return true;
+  });
+  const overdueCount = tasks.filter((t) => t.overdue).length;
+  const todayCount = tasks.filter((t) => t.due.startsWith("今天") || t.due === "今天").length;
+
 
   return (
     <div className="p-6 max-w-[1240px] mx-auto animate-fade-in">
@@ -557,94 +592,155 @@ function PopulatedDashboard({
         })}
       </div>
 
-      {/* 待办 + 存储 */}
+      {/* 待办 + 本周里程碑 */}
       <div className="mt-3 grid grid-cols-3 gap-3">
         <Card padded={false} className="col-span-2">
           <div className="flex items-center justify-between px-4 h-10 border-b hairline">
             <div className="flex items-center gap-2">
               <h2 className="text-[12.5px] font-semibold text-foreground">待办 / 待审阅</h2>
               <Badge variant="warning" className="font-mono">{tasks.length}</Badge>
+              {overdueCount > 0 && (
+                <Badge variant="danger" className="font-mono">
+                  <StatusDot variant="danger" />逾期 {overdueCount}
+                </Badge>
+              )}
+              <span className="text-[10.5px] text-foreground-subtle">今日 {todayCount} · 已完成 {completed.length}</span>
             </div>
-            <button className="text-[11.5px] text-primary hover:underline">全部待办 →</button>
+            <div className="flex items-center gap-1">
+              {(["all", "mine", "urgent", "overdue"] as FilterKey[]).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => setFilter(k)}
+                  className={`text-[11px] h-6 px-2 rounded-[4px] transition-colors ${
+                    filter === k
+                      ? "bg-surface-3 text-foreground"
+                      : "text-foreground-subtle hover:text-foreground hover:bg-surface-2"
+                  }`}
+                >
+                  {k === "all" ? "全部" : k === "mine" ? "我的" : k === "urgent" ? "紧急" : "逾期"}
+                </button>
+              ))}
+              <div className="mx-1 h-4 w-px bg-border" />
+              {completed.length > 0 && (
+                <button onClick={undoLast} className="text-[11px] text-foreground-muted hover:text-foreground inline-flex items-center gap-1 h-6 px-1.5 rounded-[4px] hover:bg-surface-2">
+                  <Undo2 className="h-3 w-3" />撤销
+                </button>
+              )}
+              <button className="text-[11.5px] text-primary hover:underline ml-1">全部待办 →</button>
+            </div>
           </div>
-          {tasks.length === 0 ? (
+          {filteredTasks.length === 0 ? (
             <div className="p-8 text-center text-[12px] text-foreground-subtle">
               <Check className="h-4 w-4 mx-auto text-success mb-1.5" />
-              全部完成，今天可以早点下班 ☕️
+              {tasks.length === 0 ? "全部完成，今天可以早点下班 ☕️" : "当前筛选下没有待办"}
             </div>
           ) : (
             <ul>
-              {tasks.map((t) => (
-                <li key={t.id} className="row-hover border-t hairline first:border-t-0 flex items-start gap-3 px-4 py-2.5">
-                  <button
-                    onClick={() => completeTask(t.id)}
-                    className="mt-0.5 h-4 w-4 rounded-full border border-border-strong hover:border-success hover:bg-success/15 grid place-items-center group"
-                    title="标记完成"
+              {filteredTasks.map((t) => {
+                const KindIcon = t.kind === "review" ? ClipboardCheck
+                  : t.kind === "material" ? Package
+                  : t.kind === "rfi" ? MessageSquare
+                  : t.kind === "archive" ? Archive
+                  : Calendar;
+                return (
+                  <li
+                    key={t.id}
+                    className="row-hover border-t hairline first:border-t-0 flex items-start gap-3 px-4 py-2.5 group"
                   >
-                    <Check className="h-2.5 w-2.5 text-transparent group-hover:text-success" />
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[12px] text-foreground truncate">{t.label}</div>
-                    <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-foreground-subtle">
-                      <span className="truncate">{t.project}</span>
-                      <span>·</span>
-                      <span>{t.owner}</span>
-                      <span>·</span>
-                      <span className="font-mono">{t.due}</span>
+                    <button
+                      onClick={() => completeTask(t.id)}
+                      className="mt-0.5 h-4 w-4 rounded-full border border-border-strong hover:border-success hover:bg-success/15 grid place-items-center"
+                      title="标记完成"
+                    >
+                      <Check className="h-2.5 w-2.5 text-transparent hover:text-success" />
+                    </button>
+                    <div className="mt-0.5 h-4 w-4 grid place-items-center text-foreground-subtle">
+                      <KindIcon className="h-3 w-3" />
                     </div>
-                  </div>
-                  <Badge variant={t.priority === "high" ? "danger" : t.priority === "med" ? "warning" : "neutral"}>
-                    {t.priority === "high" ? "紧急" : t.priority === "med" ? "常规" : "低"}
-                  </Badge>
-                  <button
-                    onClick={() => onNavigate("project-detail")}
-                    className="text-[11px] text-foreground-muted hover:text-foreground px-2 h-6 rounded-[4px] hover:bg-surface-3"
-                  >
-                    打开
-                  </button>
-                </li>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12px] text-foreground truncate">{t.label}</div>
+                      <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-foreground-subtle">
+                        <span className="truncate">{t.project}</span>
+                        <span>·</span>
+                        <span>{t.owner}</span>
+                        <span>·</span>
+                        <span className={`font-mono inline-flex items-center gap-1 ${t.overdue ? "text-danger" : ""}`}>
+                          {t.overdue && <AlertTriangle className="h-2.5 w-2.5" />}
+                          {t.due}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge variant={t.priority === "high" ? "danger" : t.priority === "med" ? "warning" : "neutral"}>
+                      {t.priority === "high" ? "紧急" : t.priority === "med" ? "常规" : "低"}
+                    </Badge>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => snoozeTask(t.id)}
+                        title="延后到明天"
+                        className="text-[11px] text-foreground-muted hover:text-foreground px-1.5 h-6 rounded-[4px] hover:bg-surface-3 inline-flex items-center gap-1"
+                      >
+                        <Clock className="h-3 w-3" />延后
+                      </button>
+                      <button
+                        onClick={() => onNavigate("project-detail")}
+                        className="text-[11px] text-foreground-muted hover:text-foreground px-2 h-6 rounded-[4px] hover:bg-surface-3"
+                      >
+                        打开
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Card>
 
         <Card padded={false}>
           <div className="flex items-center justify-between px-4 h-10 border-b hairline">
-            <h2 className="text-[12.5px] font-semibold text-foreground">存储用量</h2>
-            <Badge variant="neutral" className="font-mono">{pct}%</Badge>
+            <div className="flex items-center gap-2">
+              <h2 className="text-[12.5px] font-semibold text-foreground">本周里程碑</h2>
+              <Badge variant="neutral" className="font-mono">{weekMilestones.length}</Badge>
+            </div>
+            <button className="text-[11.5px] text-primary hover:underline">日历 →</button>
           </div>
-          <div className="p-4">
-            <div className="flex items-baseline gap-1.5">
-              <div className="text-[22px] font-semibold tabular tracking-tight text-foreground leading-none font-mono">{used.toFixed(1)}</div>
-              <div className="text-[11.5px] text-foreground-subtle">/ {STORAGE_TOTAL_GB} GB</div>
-            </div>
-            <div className="mt-3 flex h-2 w-full rounded-full overflow-hidden bg-surface-3">
-              {storageParts.map((p) => (
-                <div key={p.key}
-                  style={{ width: `${(p.gb / STORAGE_TOTAL_GB) * 100}%`, backgroundColor: p.color }}
-                  title={`${p.key} ${p.gb} GB`}
-                />
-              ))}
-            </div>
-            <ul className="mt-3 space-y-1.5 text-[11.5px]">
-              {storageParts.map((p) => (
-                <li key={p.key} className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: p.color }} />
-                  <span className="flex-1 text-foreground-muted">{p.key}</span>
-                  <span className="font-mono tabular text-foreground">{p.gb} GB</span>
+          <ul className="p-2 space-y-1">
+            {weekMilestones.map((m) => {
+              const urgent = m.state === "urgent";
+              return (
+                <li
+                  key={m.d}
+                  className="flex items-start gap-2.5 p-2 rounded-[6px] hover:bg-surface-2 cursor-pointer group"
+                  onClick={() => onNavigate("project-detail")}
+                >
+                  <div className={`shrink-0 w-9 rounded-[5px] border hairline text-center py-1 ${urgent ? "bg-danger/10 border-danger/30" : "bg-surface-2"}`}>
+                    <div className={`text-[10px] font-mono ${urgent ? "text-danger" : "text-foreground-subtle"}`}>{m.w}</div>
+                    <div className={`text-[11.5px] font-semibold font-mono tabular leading-none mt-0.5 ${urgent ? "text-danger" : "text-foreground"}`}>{m.d}</div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11.5px] text-foreground leading-tight">{m.title}</div>
+                    <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-foreground-subtle">
+                      <span className="font-mono">{m.project}</span>
+                      <span>·</span>
+                      <span>{m.owner}</span>
+                    </div>
+                  </div>
+                  <span className={`text-[10.5px] font-mono tabular shrink-0 ${urgent ? "text-danger" : "text-foreground-subtle"}`}>
+                    {m.days === 0 ? "今天" : `+${m.days}d`}
+                  </span>
                 </li>
-              ))}
-            </ul>
-            <Divider className="my-3" />
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-foreground-subtle inline-flex items-center gap-1">
-                <Trash2 className="h-3 w-3" />清理建议 3 项
-              </span>
-              <button onClick={() => onNavigate("settings")} className="text-primary hover:underline">前往清理 →</button>
-            </div>
+              );
+            })}
+          </ul>
+          <Divider />
+          <div className="flex items-center justify-between px-3 h-9 text-[11px]">
+            <span className="text-foreground-subtle inline-flex items-center gap-1">
+              <Bell className="h-3 w-3" />2 项待跟进
+            </span>
+            <button className="text-primary hover:underline">添加里程碑</button>
           </div>
         </Card>
       </div>
+
 
       {/* 最近项目 + 快速操作/活动 */}
       <div className="mt-3 grid grid-cols-3 gap-3">
@@ -706,10 +802,29 @@ function PopulatedDashboard({
             <div className="p-2 grid grid-cols-2 gap-1.5">
               <QuickAction icon={Plus} label="新建项目" hint="N" onClick={() => onNavigate("projects")} />
               <QuickAction icon={Upload} label="导入 CAD" hint="U" onClick={() => onNavigate("cad")} />
+              <QuickAction icon={ClipboardCheck} label="新建待办" hint="T" onClick={() => {
+                const id = `t-${Date.now()}`;
+                setTasks((ts) => [
+                  { id, label: "新待办 · 双击编辑", project: "外滩 22 号会所", owner: CURRENT_USER, due: "今天", priority: "med", kind: "review" },
+                  ...ts,
+                ]);
+              }} />
+              <QuickAction icon={FileSearch} label="全局搜索" hint="/" onClick={() => onOpenPalette?.()} />
+              <QuickAction icon={Sparkles} label="AI 助手" hint="A" onClick={() => onNavigate("ai")} />
               <QuickAction icon={RefreshCw} label="重新索引" hint="R I" onClick={() => { /* demo */ }} />
-              <QuickAction icon={CommandIcon} label="命令面板" hint="⌘K" onClick={() => onOpenPalette?.()} />
             </div>
+            <Divider />
+            <button
+              onClick={() => onOpenPalette?.()}
+              className="w-full h-9 px-3 flex items-center justify-between text-[11.5px] text-foreground-muted hover:text-foreground hover:bg-surface-2 transition-colors"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <CommandIcon className="h-3 w-3" />打开命令面板
+              </span>
+              <span className="font-mono text-[10.5px] text-foreground-subtle">⌘K</span>
+            </button>
           </Card>
+
 
           <Card padded={false} className="flex-1">
             <div className="flex items-center justify-between px-4 h-10 border-b hairline">
