@@ -592,94 +592,155 @@ function PopulatedDashboard({
         })}
       </div>
 
-      {/* 待办 + 存储 */}
+      {/* 待办 + 本周里程碑 */}
       <div className="mt-3 grid grid-cols-3 gap-3">
         <Card padded={false} className="col-span-2">
           <div className="flex items-center justify-between px-4 h-10 border-b hairline">
             <div className="flex items-center gap-2">
               <h2 className="text-[12.5px] font-semibold text-foreground">待办 / 待审阅</h2>
               <Badge variant="warning" className="font-mono">{tasks.length}</Badge>
+              {overdueCount > 0 && (
+                <Badge variant="danger" className="font-mono">
+                  <StatusDot variant="danger" />逾期 {overdueCount}
+                </Badge>
+              )}
+              <span className="text-[10.5px] text-foreground-subtle">今日 {todayCount} · 已完成 {completed.length}</span>
             </div>
-            <button className="text-[11.5px] text-primary hover:underline">全部待办 →</button>
+            <div className="flex items-center gap-1">
+              {(["all", "mine", "urgent", "overdue"] as FilterKey[]).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => setFilter(k)}
+                  className={`text-[11px] h-6 px-2 rounded-[4px] transition-colors ${
+                    filter === k
+                      ? "bg-surface-3 text-foreground"
+                      : "text-foreground-subtle hover:text-foreground hover:bg-surface-2"
+                  }`}
+                >
+                  {k === "all" ? "全部" : k === "mine" ? "我的" : k === "urgent" ? "紧急" : "逾期"}
+                </button>
+              ))}
+              <div className="mx-1 h-4 w-px bg-border" />
+              {completed.length > 0 && (
+                <button onClick={undoLast} className="text-[11px] text-foreground-muted hover:text-foreground inline-flex items-center gap-1 h-6 px-1.5 rounded-[4px] hover:bg-surface-2">
+                  <Undo2 className="h-3 w-3" />撤销
+                </button>
+              )}
+              <button className="text-[11.5px] text-primary hover:underline ml-1">全部待办 →</button>
+            </div>
           </div>
-          {tasks.length === 0 ? (
+          {filteredTasks.length === 0 ? (
             <div className="p-8 text-center text-[12px] text-foreground-subtle">
               <Check className="h-4 w-4 mx-auto text-success mb-1.5" />
-              全部完成，今天可以早点下班 ☕️
+              {tasks.length === 0 ? "全部完成，今天可以早点下班 ☕️" : "当前筛选下没有待办"}
             </div>
           ) : (
             <ul>
-              {tasks.map((t) => (
-                <li key={t.id} className="row-hover border-t hairline first:border-t-0 flex items-start gap-3 px-4 py-2.5">
-                  <button
-                    onClick={() => completeTask(t.id)}
-                    className="mt-0.5 h-4 w-4 rounded-full border border-border-strong hover:border-success hover:bg-success/15 grid place-items-center group"
-                    title="标记完成"
+              {filteredTasks.map((t) => {
+                const KindIcon = t.kind === "review" ? ClipboardCheck
+                  : t.kind === "material" ? Package
+                  : t.kind === "rfi" ? MessageSquare
+                  : t.kind === "archive" ? Archive
+                  : Calendar;
+                return (
+                  <li
+                    key={t.id}
+                    className="row-hover border-t hairline first:border-t-0 flex items-start gap-3 px-4 py-2.5 group"
                   >
-                    <Check className="h-2.5 w-2.5 text-transparent group-hover:text-success" />
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[12px] text-foreground truncate">{t.label}</div>
-                    <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-foreground-subtle">
-                      <span className="truncate">{t.project}</span>
-                      <span>·</span>
-                      <span>{t.owner}</span>
-                      <span>·</span>
-                      <span className="font-mono">{t.due}</span>
+                    <button
+                      onClick={() => completeTask(t.id)}
+                      className="mt-0.5 h-4 w-4 rounded-full border border-border-strong hover:border-success hover:bg-success/15 grid place-items-center"
+                      title="标记完成"
+                    >
+                      <Check className="h-2.5 w-2.5 text-transparent hover:text-success" />
+                    </button>
+                    <div className="mt-0.5 h-4 w-4 grid place-items-center text-foreground-subtle">
+                      <KindIcon className="h-3 w-3" />
                     </div>
-                  </div>
-                  <Badge variant={t.priority === "high" ? "danger" : t.priority === "med" ? "warning" : "neutral"}>
-                    {t.priority === "high" ? "紧急" : t.priority === "med" ? "常规" : "低"}
-                  </Badge>
-                  <button
-                    onClick={() => onNavigate("project-detail")}
-                    className="text-[11px] text-foreground-muted hover:text-foreground px-2 h-6 rounded-[4px] hover:bg-surface-3"
-                  >
-                    打开
-                  </button>
-                </li>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12px] text-foreground truncate">{t.label}</div>
+                      <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-foreground-subtle">
+                        <span className="truncate">{t.project}</span>
+                        <span>·</span>
+                        <span>{t.owner}</span>
+                        <span>·</span>
+                        <span className={`font-mono inline-flex items-center gap-1 ${t.overdue ? "text-danger" : ""}`}>
+                          {t.overdue && <AlertTriangle className="h-2.5 w-2.5" />}
+                          {t.due}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge variant={t.priority === "high" ? "danger" : t.priority === "med" ? "warning" : "neutral"}>
+                      {t.priority === "high" ? "紧急" : t.priority === "med" ? "常规" : "低"}
+                    </Badge>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => snoozeTask(t.id)}
+                        title="延后到明天"
+                        className="text-[11px] text-foreground-muted hover:text-foreground px-1.5 h-6 rounded-[4px] hover:bg-surface-3 inline-flex items-center gap-1"
+                      >
+                        <Clock className="h-3 w-3" />延后
+                      </button>
+                      <button
+                        onClick={() => onNavigate("project-detail")}
+                        className="text-[11px] text-foreground-muted hover:text-foreground px-2 h-6 rounded-[4px] hover:bg-surface-3"
+                      >
+                        打开
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Card>
 
         <Card padded={false}>
           <div className="flex items-center justify-between px-4 h-10 border-b hairline">
-            <h2 className="text-[12.5px] font-semibold text-foreground">存储用量</h2>
-            <Badge variant="neutral" className="font-mono">{pct}%</Badge>
+            <div className="flex items-center gap-2">
+              <h2 className="text-[12.5px] font-semibold text-foreground">本周里程碑</h2>
+              <Badge variant="neutral" className="font-mono">{weekMilestones.length}</Badge>
+            </div>
+            <button className="text-[11.5px] text-primary hover:underline">日历 →</button>
           </div>
-          <div className="p-4">
-            <div className="flex items-baseline gap-1.5">
-              <div className="text-[22px] font-semibold tabular tracking-tight text-foreground leading-none font-mono">{used.toFixed(1)}</div>
-              <div className="text-[11.5px] text-foreground-subtle">/ {STORAGE_TOTAL_GB} GB</div>
-            </div>
-            <div className="mt-3 flex h-2 w-full rounded-full overflow-hidden bg-surface-3">
-              {storageParts.map((p) => (
-                <div key={p.key}
-                  style={{ width: `${(p.gb / STORAGE_TOTAL_GB) * 100}%`, backgroundColor: p.color }}
-                  title={`${p.key} ${p.gb} GB`}
-                />
-              ))}
-            </div>
-            <ul className="mt-3 space-y-1.5 text-[11.5px]">
-              {storageParts.map((p) => (
-                <li key={p.key} className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: p.color }} />
-                  <span className="flex-1 text-foreground-muted">{p.key}</span>
-                  <span className="font-mono tabular text-foreground">{p.gb} GB</span>
+          <ul className="p-2 space-y-1">
+            {weekMilestones.map((m) => {
+              const urgent = m.state === "urgent";
+              return (
+                <li
+                  key={m.d}
+                  className="flex items-start gap-2.5 p-2 rounded-[6px] hover:bg-surface-2 cursor-pointer group"
+                  onClick={() => onNavigate("project-detail")}
+                >
+                  <div className={`shrink-0 w-9 rounded-[5px] border hairline text-center py-1 ${urgent ? "bg-danger/10 border-danger/30" : "bg-surface-2"}`}>
+                    <div className={`text-[10px] font-mono ${urgent ? "text-danger" : "text-foreground-subtle"}`}>{m.w}</div>
+                    <div className={`text-[11.5px] font-semibold font-mono tabular leading-none mt-0.5 ${urgent ? "text-danger" : "text-foreground"}`}>{m.d}</div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11.5px] text-foreground leading-tight">{m.title}</div>
+                    <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-foreground-subtle">
+                      <span className="font-mono">{m.project}</span>
+                      <span>·</span>
+                      <span>{m.owner}</span>
+                    </div>
+                  </div>
+                  <span className={`text-[10.5px] font-mono tabular shrink-0 ${urgent ? "text-danger" : "text-foreground-subtle"}`}>
+                    {m.days === 0 ? "今天" : `+${m.days}d`}
+                  </span>
                 </li>
-              ))}
-            </ul>
-            <Divider className="my-3" />
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-foreground-subtle inline-flex items-center gap-1">
-                <Trash2 className="h-3 w-3" />清理建议 3 项
-              </span>
-              <button onClick={() => onNavigate("settings")} className="text-primary hover:underline">前往清理 →</button>
-            </div>
+              );
+            })}
+          </ul>
+          <Divider />
+          <div className="flex items-center justify-between px-3 h-9 text-[11px]">
+            <span className="text-foreground-subtle inline-flex items-center gap-1">
+              <Bell className="h-3 w-3" />2 项待跟进
+            </span>
+            <button className="text-primary hover:underline">添加里程碑</button>
           </div>
         </Card>
       </div>
+
 
       {/* 最近项目 + 快速操作/活动 */}
       <div className="mt-3 grid grid-cols-3 gap-3">
