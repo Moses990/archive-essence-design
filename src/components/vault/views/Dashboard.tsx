@@ -5,6 +5,8 @@ import {
   ArrowUpRight, Check, Circle, Sparkles, HardDrive, FolderOpen, Scan,
   BrainCircuit, ShieldCheck, ChevronRight, ChevronLeft, X, RotateCcw,
   PartyPopper, Command as CommandIcon, RefreshCw, Trash2,
+  Calendar, Clock, AlertTriangle, ClipboardCheck, MessageSquare, Archive,
+  FileSearch, Bell, Users, Undo2, ChevronDown,
 } from "lucide-react";
 import type { ViewKey } from "../types";
 
