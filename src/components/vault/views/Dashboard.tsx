@@ -545,7 +545,7 @@ function PopulatedDashboard({
     <div className="p-6 max-w-[1240px] mx-auto animate-fade-in">
       <PageHeader
         title="工作台"
-        description={`今天是 2026 年 7 月 1 日 · 3 位成员在线 · 索引服务运行中 · 根目录 ${config.rootPath}`}
+        description={`今天是 2026 年 7 月 1 日 · 索引服务运行中 · 根目录 ${config.rootPath}`}
         actions={
           <>
             <Button variant="ghost" onClick={onReset} title="重新查看空状态引导">
@@ -765,7 +765,7 @@ function PopulatedDashboard({
                 <th className="font-medium py-2">名称</th>
                 <th className="font-medium py-2 w-[92px]">阶段</th>
                 <th className="font-medium py-2 w-[70px] text-right tabular">图纸</th>
-                <th className="font-medium py-2 w-[80px]">负责人</th>
+                <th className="font-medium py-2 w-[86px]">阶段进度</th>
                 <th className="font-medium py-2 w-[110px]">更新</th>
                 <th className="font-medium px-4 py-2 w-[70px]"></th>
               </tr>
