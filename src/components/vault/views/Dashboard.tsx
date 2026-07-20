@@ -616,7 +616,7 @@ function PopulatedDashboard({
                       : "text-foreground-subtle hover:text-foreground hover:bg-surface-2"
                   }`}
                 >
-                  {k === "all" ? "全部" : k === "mine" ? "我的" : k === "urgent" ? "紧急" : "逾期"}
+                  {k === "all" ? "全部" : k === "urgent" ? "紧急" : "逾期"}
                 </button>
               ))}
               <div className="mx-1 h-4 w-px bg-border" />
@@ -660,8 +660,6 @@ function PopulatedDashboard({
                       <div className="text-[12px] text-foreground truncate">{t.label}</div>
                       <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-foreground-subtle">
                         <span className="truncate">{t.project}</span>
-                        <span>·</span>
-                        <span>{t.owner}</span>
                         <span>·</span>
                         <span className={`font-mono inline-flex items-center gap-1 ${t.overdue ? "text-danger" : ""}`}>
                           {t.overdue && <AlertTriangle className="h-2.5 w-2.5" />}
@@ -719,8 +717,6 @@ function PopulatedDashboard({
                     <div className="text-[11.5px] text-foreground leading-tight">{m.title}</div>
                     <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-foreground-subtle">
                       <span className="font-mono">{m.project}</span>
-                      <span>·</span>
-                      <span>{m.owner}</span>
                     </div>
                   </div>
                   <span className={`text-[10.5px] font-mono tabular shrink-0 ${urgent ? "text-danger" : "text-foreground-subtle"}`}>
