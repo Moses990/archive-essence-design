@@ -506,7 +506,7 @@ function StepHeader({ icon: Icon, title, desc }: { icon: typeof FolderOpen; titl
 function PopulatedDashboard({
   onNavigate, config, onReset, onOpenPalette,
 }: { onNavigate: (v: ViewKey) => void; config: Config; onReset: () => void; onOpenPalette?: () => void }) {
-  type FilterKey = "all" | "mine" | "urgent" | "overdue";
+  type FilterKey = "all" | "urgent" | "overdue";
   const [tasks, setTasks] = useState(initialTasks);
   const [completed, setCompleted] = useState<typeof initialTasks>([]);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -532,7 +532,6 @@ function PopulatedDashboard({
   };
 
   const filteredTasks = tasks.filter((t) => {
-    if (filter === "mine") return t.owner === CURRENT_USER;
     if (filter === "urgent") return t.priority === "high";
     if (filter === "overdue") return !!t.overdue;
     return true;
@@ -545,7 +544,7 @@ function PopulatedDashboard({
     <div className="p-6 max-w-[1240px] mx-auto animate-fade-in">
       <PageHeader
         title="工作台"
-        description={`今天是 2026 年 7 月 1 日 · 3 位成员在线 · 索引服务运行中 · 根目录 ${config.rootPath}`}
+        description={`今天是 2026 年 7 月 1 日 · 索引服务运行中 · 根目录 ${config.rootPath}`}
         actions={
           <>
             <Button variant="ghost" onClick={onReset} title="重新查看空状态引导">
@@ -607,7 +606,7 @@ function PopulatedDashboard({
               <span className="text-[10.5px] text-foreground-subtle">今日 {todayCount} · 已完成 {completed.length}</span>
             </div>
             <div className="flex items-center gap-1">
-              {(["all", "mine", "urgent", "overdue"] as FilterKey[]).map((k) => (
+              {(["all", "urgent", "overdue"] as FilterKey[]).map((k) => (
                 <button
                   key={k}
                   onClick={() => setFilter(k)}
@@ -617,7 +616,7 @@ function PopulatedDashboard({
                       : "text-foreground-subtle hover:text-foreground hover:bg-surface-2"
                   }`}
                 >
-                  {k === "all" ? "全部" : k === "mine" ? "我的" : k === "urgent" ? "紧急" : "逾期"}
+                  {k === "all" ? "全部" : k === "urgent" ? "紧急" : "逾期"}
                 </button>
               ))}
               <div className="mx-1 h-4 w-px bg-border" />
@@ -661,8 +660,6 @@ function PopulatedDashboard({
                       <div className="text-[12px] text-foreground truncate">{t.label}</div>
                       <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-foreground-subtle">
                         <span className="truncate">{t.project}</span>
-                        <span>·</span>
-                        <span>{t.owner}</span>
                         <span>·</span>
                         <span className={`font-mono inline-flex items-center gap-1 ${t.overdue ? "text-danger" : ""}`}>
                           {t.overdue && <AlertTriangle className="h-2.5 w-2.5" />}
@@ -720,8 +717,6 @@ function PopulatedDashboard({
                     <div className="text-[11.5px] text-foreground leading-tight">{m.title}</div>
                     <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-foreground-subtle">
                       <span className="font-mono">{m.project}</span>
-                      <span>·</span>
-                      <span>{m.owner}</span>
                     </div>
                   </div>
                   <span className={`text-[10.5px] font-mono tabular shrink-0 ${urgent ? "text-danger" : "text-foreground-subtle"}`}>
@@ -765,7 +760,7 @@ function PopulatedDashboard({
                 <th className="font-medium py-2">名称</th>
                 <th className="font-medium py-2 w-[92px]">阶段</th>
                 <th className="font-medium py-2 w-[70px] text-right tabular">图纸</th>
-                <th className="font-medium py-2 w-[80px]">负责人</th>
+                
                 <th className="font-medium py-2 w-[110px]">更新</th>
                 <th className="font-medium px-4 py-2 w-[70px]"></th>
               </tr>
@@ -782,7 +777,7 @@ function PopulatedDashboard({
                     </Badge>
                   </td>
                   <td className="py-2 text-right tabular font-mono text-foreground-muted">{r.drawings}</td>
-                  <td className="py-2">{r.owner}</td>
+                  
                   <td className="py-2 text-foreground-subtle">{r.updated}</td>
                   <td className="px-4 py-2 text-right">
                     <ArrowUpRight className="inline h-3.5 w-3.5 text-foreground-subtle" />
