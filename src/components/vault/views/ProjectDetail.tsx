@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, Button, Badge, StatusDot, Divider, Input } from "../ui";
 import {
   Star, Share2, MoreHorizontal, Info, FileText, DraftingCompass, Package,
-  Sparkles, History as HistoryIcon, Download, Eye, GitBranch, MapPin, Calendar, User,
+  Sparkles, History as HistoryIcon, Download, Eye, GitBranch, MapPin, Calendar,
   ChevronRight, ChevronDown, Folder, Search, Filter,
 } from "lucide-react";
 import { historyEvents, OP_META } from "../data/history";
