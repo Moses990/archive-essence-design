@@ -506,7 +506,7 @@ function StepHeader({ icon: Icon, title, desc }: { icon: typeof FolderOpen; titl
 function PopulatedDashboard({
   onNavigate, config, onReset, onOpenPalette,
 }: { onNavigate: (v: ViewKey) => void; config: Config; onReset: () => void; onOpenPalette?: () => void }) {
-  type FilterKey = "all" | "mine" | "urgent" | "overdue";
+  type FilterKey = "all" | "urgent" | "overdue";
   const [tasks, setTasks] = useState(initialTasks);
   const [completed, setCompleted] = useState<typeof initialTasks>([]);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -532,7 +532,6 @@ function PopulatedDashboard({
   };
 
   const filteredTasks = tasks.filter((t) => {
-    if (filter === "mine") return t.owner === CURRENT_USER;
     if (filter === "urgent") return t.priority === "high";
     if (filter === "overdue") return !!t.overdue;
     return true;
@@ -607,7 +606,7 @@ function PopulatedDashboard({
               <span className="text-[10.5px] text-foreground-subtle">今日 {todayCount} · 已完成 {completed.length}</span>
             </div>
             <div className="flex items-center gap-1">
-              {(["all", "mine", "urgent", "overdue"] as FilterKey[]).map((k) => (
+              {(["all", "urgent", "overdue"] as FilterKey[]).map((k) => (
                 <button
                   key={k}
                   onClick={() => setFilter(k)}
