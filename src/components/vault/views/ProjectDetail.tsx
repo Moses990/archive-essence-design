@@ -12,7 +12,7 @@ const TABS = [
   { key: "files", label: "文件", icon: FileText, count: 214 },
   { key: "drawings", label: "图纸", icon: DraftingCompass, count: 128 },
   { key: "materials", label: "材料", icon: Package, count: 46 },
-  { key: "team", label: "团队", icon: User, count: 5 },
+  
   { key: "ai", label: "AI", icon: Sparkles },
   { key: "activity", label: "活动", icon: HistoryIcon },
 ] as const;
@@ -78,13 +78,6 @@ const materialItems: Record<string, { name: string; vendor: string; price: strin
   ],
 };
 
-const teamMembers = [
-  { n: "李泽", r: "主设计师 · Owner", email: "li.ze@studio.cn", perm: "全部", active: "在线", c: "hsl(244 78% 66%)" },
-  { n: "王悦", r: "施工图设计",       email: "wang.yue@studio.cn", perm: "编辑",  active: "12 分钟前", c: "hsl(152 55% 46%)" },
-  { n: "陈默", r: "机电顾问",         email: "chen.mo@ext.cn", perm: "评论",  active: "1 小时前", c: "hsl(38 92% 58%)" },
-  { n: "周颖", r: "材料 / BIM",       email: "zhou.ying@studio.cn", perm: "编辑",  active: "3 小时前", c: "hsl(210 90% 62%)" },
-  { n: "刘洋", r: "结构复核",         email: "liu.yang@ext.cn", perm: "只读",  active: "昨天",     c: "hsl(358 68% 58%)" },
-];
 
 const aiSuggestions = [
   { title: "生成 A-03 施工说明", desc: "基于图签、图层与元数据推断中文段落", model: "gpt-5.1-mini" },
@@ -113,7 +106,6 @@ export default function ProjectDetail() {
                   <Badge variant="neutral">商业空间</Badge>
                 </div>
                 <div className="mt-1.5 flex items-center gap-4 text-[11.5px] text-foreground-subtle">
-                  <span className="inline-flex items-center gap-1"><User className="h-3 w-3" />负责人 <span className="text-foreground-muted">李泽</span></span>
                   <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />上海市黄浦区</span>
                   <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" />2025-11 → 2026-09</span>
                   <span className="font-mono">/Vault/外滩22号会所</span>
@@ -158,7 +150,6 @@ export default function ProjectDetail() {
         {tab === "files" && <FilesTab />}
         {tab === "drawings" && <DrawingsTab />}
         {tab === "materials" && <MaterialsTab />}
-        {tab === "team" && <TeamTab />}
         {tab === "ai" && <AiTab />}
         {tab === "activity" && <ActivityTab />}
       </div>
@@ -504,56 +495,6 @@ function MaterialsTab() {
   );
 }
 
-/* ─────────────────────── Tab: Team ─────────────────────── */
-
-function TeamTab() {
-  return (
-    <Card padded={false}>
-      <div className="flex items-center justify-between px-4 h-11 border-b hairline">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[12.5px] font-semibold text-foreground">团队成员</h3>
-          <Badge variant="neutral" className="font-mono">{teamMembers.length}</Badge>
-        </div>
-        <Button variant="primary">+ 邀请成员</Button>
-      </div>
-      <table className="w-full text-[12px]">
-        <thead>
-          <tr className="text-left text-[10.5px] uppercase tracking-wider text-foreground-subtle bg-surface-1/50">
-            <th className="font-medium px-4 py-2">成员</th>
-            <th className="font-medium py-2">角色</th>
-            <th className="font-medium py-2 w-[220px]">邮箱</th>
-            <th className="font-medium py-2 w-[80px]">权限</th>
-            <th className="font-medium py-2 w-[120px]">活跃</th>
-            <th className="w-[80px] px-4 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {teamMembers.map((m) => (
-            <tr key={m.n} className="row-hover border-t hairline">
-              <td className="px-4 py-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="h-7 w-7 rounded-full grid place-items-center text-[11px] font-semibold text-primary-foreground" style={{ backgroundColor: m.c }}>
-                    {m.n.slice(-1)}
-                  </span>
-                  <span className="text-foreground font-medium">{m.n}</span>
-                </div>
-              </td>
-              <td className="py-2.5 text-foreground-muted">{m.r}</td>
-              <td className="py-2.5 text-foreground-muted font-mono text-[11px]">{m.email}</td>
-              <td className="py-2.5">
-                <Badge variant={m.perm === "全部" ? "primary" : m.perm === "编辑" ? "info" : m.perm === "评论" ? "warning" : "neutral"}>{m.perm}</Badge>
-              </td>
-              <td className="py-2.5 text-foreground-subtle">{m.active}</td>
-              <td className="px-4 py-2.5 text-right">
-                <button className="h-6 w-6 grid place-items-center rounded-[4px] hover:bg-surface-3 text-foreground-muted"><MoreHorizontal className="h-3.5 w-3.5" /></button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
-  );
-}
 
 /* ─────────────────────── Tab: AI ─────────────────────── */
 
