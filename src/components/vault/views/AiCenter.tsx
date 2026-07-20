@@ -198,7 +198,7 @@ export default function AiCenter() {
       </div>
 
       {/* Prompt templates */}
-      <PageHeader title="提示词模板库" description="团队共享 · 支持变量替换与版本管理" />
+      <PageHeader title="提示词模板库" description="支持变量替换与版本管理" />
       <div className="grid grid-cols-3 gap-3">
         {promptTemplates.map((t) => (
           <Card key={t.id} className="group">

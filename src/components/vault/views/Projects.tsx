@@ -68,7 +68,7 @@ export default function Projects({ onNavigate, filter, setFilter }: Props) {
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground-subtle pointer-events-none" />
             <Input
-              placeholder="搜索项目名 / 编号 / 客户 / 负责人…"
+              placeholder="搜索项目名 / 编号 / 客户 / 标签…"
               className="pl-7 w-[280px]"
               value={filter.query}
               onChange={(e) => setFilter({ ...filter, query: e.target.value })}

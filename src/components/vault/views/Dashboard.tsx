@@ -765,7 +765,7 @@ function PopulatedDashboard({
                 <th className="font-medium py-2">名称</th>
                 <th className="font-medium py-2 w-[92px]">阶段</th>
                 <th className="font-medium py-2 w-[70px] text-right tabular">图纸</th>
-                <th className="font-medium py-2 w-[86px]">阶段进度</th>
+                
                 <th className="font-medium py-2 w-[110px]">更新</th>
                 <th className="font-medium px-4 py-2 w-[70px]"></th>
               </tr>
@@ -782,7 +782,7 @@ function PopulatedDashboard({
                     </Badge>
                   </td>
                   <td className="py-2 text-right tabular font-mono text-foreground-muted">{r.drawings}</td>
-                  <td className="py-2">{r.owner}</td>
+                  
                   <td className="py-2 text-foreground-subtle">{r.updated}</td>
                   <td className="px-4 py-2 text-right">
                     <ArrowUpRight className="inline h-3.5 w-3.5 text-foreground-subtle" />
